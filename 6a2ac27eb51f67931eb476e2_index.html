@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>月曆記事板</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">GitHub 專案版本</p>
+        <h1>月曆記事板</h1>
+        <p class="subtitle">用表格方式輸入資料，再即時用月曆方式查看。</p>
+      </div>
+      <div class="hero-actions">
+        <button id="addRowButton" class="primary-button" type="button">新增項目</button>
+        <button id="saveButton" class="secondary-button" type="button">儲存資料</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>表格式輸入</h2>
+            <p>可直接像 Excel 一樣逐行輸入。</p>
+          </div>
+          <div class="panel-tools">
+            <button id="sampleButton" type="button">載入示例</button>
+            <button id="clearButton" type="button" class="danger-button">清空全部</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>主題</th>
+                <th>備註</th>
+                <th>顏色</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="entryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header calendar-header">
+          <div>
+            <h2>月曆檢視</h2>
+            <p id="calendarTitle">2026 年 6 月</p>
+          </div>
+          <div class="calendar-nav">
+            <button id="prevMonthButton" type="button">上個月</button>
+            <button id="todayButton" type="button">今個月</button>
+            <button id="nextMonthButton" type="button">下個月</button>
+          </div>
+        </div>
+
+        <div class="weekday-row">
+          <span>日</span>
+          <span>一</span>
+          <span>二</span>
+          <span>三</span>
+          <span>四</span>
+          <span>五</span>
+          <span>六</span>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <template id="entryRowTemplate">
+    <tr>
+      <td>
+        <input class="entry-date" type="date">
+      </td>
+      <td>
+        <select class="entry-category">
+          <option value="生日">生日</option>
+          <option value="工作">工作</option>
+          <option value="假期">假期</option>
+          <option value="日常">日常</option>
+          <option value="開餐">開餐</option>
+          <option value="娛樂">娛樂</option>
+        </select>
+      </td>
+      <td>
+        <input class="entry-note" type="text" placeholder="輸入備註">
+      </td>
+      <td>
+        <input class="entry-color" type="color" value="#4f46e5">
+      </td>
+      <td>
+        <button class="delete-row-button" type="button">刪除</button>
+      </td>
+    </tr>
+  </template>
+
+  <script src="./script.js"></script>
+</body>
+</html>
