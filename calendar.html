@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>月曆記事板｜月曆顯示</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="top-nav">
+      <a class="nav-link" href="./index.html">資料管理</a>
+      <a class="nav-link is-active" href="./calendar.html">月曆顯示</a>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">GitHub 專案版本</p>
+        <h1>月曆顯示頁</h1>
+        <p class="subtitle">集中查看整個月份的記事內容，輸入同修改可返回資料管理頁進行。</p>
+      </div>
+      <div class="hero-actions">
+        <a class="primary-link-button" href="./index.html">前往資料管理</a>
+      </div>
+    </header>
+
+    <main class="single-layout">
+      <section class="panel">
+        <div class="panel-header calendar-header">
+          <div>
+            <h2>月曆檢視</h2>
+            <p id="calendarTitle">2026 年 6 月</p>
+          </div>
+          <div class="calendar-nav">
+            <button id="prevMonthButton" type="button">上個月</button>
+            <button id="todayButton" type="button">今個月</button>
+            <button id="nextMonthButton" type="button">下個月</button>
+          </div>
+        </div>
+
+        <div class="weekday-row">
+          <span>日</span>
+          <span>一</span>
+          <span>二</span>
+          <span>三</span>
+          <span>四</span>
+          <span>五</span>
+          <span>六</span>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>

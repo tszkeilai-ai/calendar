@@ -8,11 +8,16 @@
 </head>
 <body>
   <div class="app-shell">
+    <nav class="top-nav">
+      <a class="nav-link is-active" href="./index.html">資料管理</a>
+      <a class="nav-link" href="./calendar.html">月曆顯示</a>
+    </nav>
+
     <header class="hero">
       <div>
         <p class="eyebrow">GitHub 專案版本</p>
-        <h1>月曆記事板</h1>
-        <p class="subtitle">用表格方式輸入資料，再即時用月曆方式查看。</p>
+        <h1>資料管理頁</h1>
+        <p class="subtitle">先用表格方式輸入、篩選同修改資料，再去月曆頁查看內容。</p>
       </div>
       <div class="hero-actions">
         <button id="addRowButton" class="primary-button" type="button">新增項目</button>
@@ -20,12 +25,39 @@
       </div>
     </header>
 
-    <main class="layout">
+    <main class="single-layout">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>日期篩選</h2>
+            <p>可用單一日期或開始、結束日期查找，方便之後修改或刪除。</p>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <label class="field">
+            <span>指定日期</span>
+            <input id="filterExactDate" type="date">
+          </label>
+          <label class="field">
+            <span>開始日期</span>
+            <input id="filterStartDate" type="date">
+          </label>
+          <label class="field">
+            <span>結束日期</span>
+            <input id="filterEndDate" type="date">
+          </label>
+          <div class="filter-actions">
+            <button id="resetFilterButton" type="button">清除篩選</button>
+          </div>
+        </div>
+      </section>
+
       <section class="panel">
         <div class="panel-header">
           <div>
             <h2>表格式輸入</h2>
-            <p>可直接像 Excel 一樣逐行輸入。</p>
+            <p id="filterSummary">可直接像 Excel 一樣逐行輸入。</p>
           </div>
           <div class="panel-tools">
             <button id="sampleButton" type="button">載入示例</button>
@@ -47,31 +79,6 @@
             <tbody id="entryTableBody"></tbody>
           </table>
         </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header calendar-header">
-          <div>
-            <h2>月曆檢視</h2>
-            <p id="calendarTitle">2026 年 6 月</p>
-          </div>
-          <div class="calendar-nav">
-            <button id="prevMonthButton" type="button">上個月</button>
-            <button id="todayButton" type="button">今個月</button>
-            <button id="nextMonthButton" type="button">下個月</button>
-          </div>
-        </div>
-
-        <div class="weekday-row">
-          <span>日</span>
-          <span>一</span>
-          <span>二</span>
-          <span>三</span>
-          <span>四</span>
-          <span>五</span>
-          <span>六</span>
-        </div>
-        <div id="calendarGrid" class="calendar-grid"></div>
       </section>
     </main>
   </div>

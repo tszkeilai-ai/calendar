@@ -45,6 +45,33 @@ button:hover {
   padding: 32px 20px 40px;
 }
 
+.top-nav {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.nav-link,
+.primary-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--panel-border);
+  background: #fff;
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.nav-link.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
 .hero {
   display: flex;
   justify-content: space-between;
@@ -116,6 +143,11 @@ button:hover {
   gap: 20px;
 }
 
+.single-layout {
+  display: grid;
+  gap: 20px;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -144,6 +176,35 @@ button:hover {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field span {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.field input,
+.filter-actions button {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
 }
 
 table {
@@ -185,6 +246,12 @@ td input[type="color"] {
   border: 0;
   background: transparent;
   padding: 0;
+}
+
+.empty-state-cell {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px 12px;
 }
 
 .weekday-row {
@@ -266,6 +333,10 @@ td input[type="color"] {
   .layout {
     grid-template-columns: 1fr;
   }
+
+  .filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -286,5 +357,9 @@ td input[type="color"] {
   .calendar-day {
     min-height: 110px;
     padding: 8px;
+  }
+
+  .filter-bar {
+    grid-template-columns: 1fr;
   }
 }
