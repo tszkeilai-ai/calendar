@@ -138,8 +138,13 @@ function renderEmptyState(targetElement, message) {
 }
 
 // 文章列表與月曆詳情共用的記事卡片渲染函式。
-function renderEventCards(targetElement, events) {
+// 可透過 options 控制：
+// - showDate: 是否顯示每筆資料的日期
+// - editable: 是否顯示「修改」按鈕
+// - onEdit: 點擊修改後要執行的函式
+function renderEventCards(targetElement, events, options = {}) {
   if (!targetElement) return;
+  const { showDate = false, editable = false, onEdit = null } = options;
 
   if (!events.length) {
     renderEmptyState(targetElement, "目前沒有資料。");
@@ -153,6 +158,7 @@ function renderEventCards(targetElement, events) {
 
       return `
         <li class="entry-item">
+          ${showDate ? `<p class="entry-date-line">${formatDateLabel(event.event_date)}</p>` : ""}
           <div class="entry-meta">
             <div class="entry-meta-left">
               <span
@@ -170,10 +176,29 @@ function renderEventCards(targetElement, events) {
             </span>
           </div>
           <p class="entry-note">${escapeHtml(event.description?.trim() || "沒有備註")}</p>
+          ${
+            editable
+              ? `
+                <div class="entry-actions">
+                  <button type="button" class="edit-button" data-edit-id="${escapeHtml(event.id)}">
+                    修改
+                  </button>
+                </div>
+              `
+              : ""
+          }
         </li>
       `;
     })
     .join("");
+
+  if (editable && typeof onEdit === "function") {
+    targetElement.querySelectorAll("[data-edit-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        onEdit(button.dataset.editId);
+      });
+    });
+  }
 }
 
 // 取得目前登入中的使用者。
@@ -204,15 +229,21 @@ async function initIndexPage() {
   const authSubmitButton = $("#auth-submit-button");
   const authMessage = $("#auth-message");
   const logoutButton = $("#logout-button");
+  const toggleControlsButton = $("#toggle-controls-button");
+  const controlsPanel = $("#controls-panel");
   const filterDateInput = $("#filter-date");
   const clearFilterButton = $("#clear-filter-button");
   const quickDateInput = $("#quick-date");
   const quickEntryForm = $("#quick-entry-form");
+  const addEntryButton = $("#add-entry-button");
+  const cancelEditButton = $("#cancel-edit-button");
   const listStatus = $("#list-status");
   const colorHexLabel = $("#color-hex-label");
 
   // 歷史資料篩選日期（空字串代表「不篩選，顯示全部」）
   let filterDate = "";
+  let editingEntryId = null;
+  let latestRenderedEntries = [];
 
   // 初始化：
   // - 篩選器預設不選日期（顯示全部歷史資料）
@@ -227,6 +258,60 @@ async function initIndexPage() {
     colorHexLabel.textContent = normalizeHexColor($("#entry-color")?.value, "#3b82f6");
   }
   syncColorHexLabel();
+
+  // 收合/展開首頁控制面板，讓手機畫面先優先顯示記事列表。
+  function setControlsExpanded(expanded) {
+    if (!controlsPanel || !toggleControlsButton) return;
+    controlsPanel.classList.toggle("is-collapsed", !expanded);
+    toggleControlsButton.setAttribute("aria-expanded", String(expanded));
+    toggleControlsButton.textContent = expanded ? "收起新增 / 篩選" : "➕ 新增 / 篩選";
+  }
+
+  // 依照目前是否在修改模式，切換送出區按鈕文字與取消按鈕顯示。
+  function updateEditorModeUI() {
+    const isEditing = Boolean(editingEntryId);
+    if (addEntryButton) {
+      addEntryButton.textContent = isEditing ? "更新記事" : "新增記事";
+    }
+    if (cancelEditButton) {
+      cancelEditButton.classList.toggle("hidden", !isEditing);
+    }
+  }
+
+  function resetEditorForm() {
+    quickDateInput.value = formatDateToISO(new Date());
+    selectedEntryDate = quickDateInput.value;
+    $("#entry-time").value = "";
+    $("#entry-title").value = "";
+    $("#entry-description").value = "";
+    $("#entry-color").value = "#3b82f6";
+    syncColorHexLabel();
+  }
+
+  function stopEditing({ keepValues = false } = {}) {
+    editingEntryId = null;
+    updateEditorModeUI();
+    if (!keepValues) {
+      resetEditorForm();
+    }
+  }
+
+  function startEditing(entryId) {
+    const targetEntry = latestRenderedEntries.find((entry) => entry.id === entryId);
+    if (!targetEntry) return;
+
+    editingEntryId = entryId;
+    selectedEntryDate = targetEntry.event_date;
+    quickDateInput.value = targetEntry.event_date;
+    $("#entry-time").value = formatTimeLabel(targetEntry.event_time);
+    $("#entry-title").value = targetEntry.title || "";
+    $("#entry-description").value = targetEntry.description || "";
+    $("#entry-color").value = normalizeHexColor(targetEntry.color, "#3b82f6");
+    syncColorHexLabel();
+    updateEditorModeUI();
+    setControlsExpanded(true);
+    setStatus(listStatus, "已帶入舊資料，請直接修改後按「更新記事」。");
+  }
 
   // 切換登入 / 註冊模式。
   function switchAuthMode(mode) {
@@ -272,7 +357,12 @@ async function initIndexPage() {
 
       if (error) throw error;
 
-      renderEventCards($("#entry-list"), data || []);
+      latestRenderedEntries = data || [];
+      renderEventCards($("#entry-list"), latestRenderedEntries, {
+        editable: true,
+        showDate: false,
+        onEdit: startEditing,
+      });
       setStatus(listStatus, `已載入 ${formatDateLabel(isoDate)} 的記事資料。`, "success");
     } catch (error) {
       // 注意：資料是 0 筆時不會進到 catch（因為 Supabase 會回傳空陣列 data: []）
@@ -307,7 +397,12 @@ async function initIndexPage() {
 
       if (error) throw error;
 
-      renderEventCards($("#entry-list"), data || []);
+      latestRenderedEntries = data || [];
+      renderEventCards($("#entry-list"), latestRenderedEntries, {
+        editable: true,
+        showDate: true,
+        onEdit: startEditing,
+      });
       setStatus(listStatus, "已載入所有歷史資料。", "success");
     } catch (error) {
       renderEmptyState($("#entry-list"), "目前沒有資料。");
@@ -416,7 +511,7 @@ async function initIndexPage() {
   clearFilterButton?.addEventListener("click", async () => {
     filterDate = "";
     filterDateInput.value = "";
-    await refreshEntries();
+    await loadAllEntries();
   });
 
   // 快捷輸入區內的日期：只影響「新增事件的日期」，不再強制同步到篩選器
@@ -462,19 +557,25 @@ async function initIndexPage() {
         color: normalizeHexColor(entryColor.value, "#3b82f6"),
       };
 
-      const { error } = await supabaseClient.from(EVENTS_TABLE).insert(payload);
-      if (error) throw error;
+      if (editingEntryId) {
+        const { error } = await supabaseClient
+          .from(EVENTS_TABLE)
+          .update(payload)
+          .eq("id", editingEntryId)
+          .eq("user_id", user.id);
+        if (error) throw error;
 
-      // 依照你的需求，新增成功後立即清空輸入欄位。
-      entryTime.value = "";
-      entryTitle.value = "";
-      entryDescription.value = "";
-      entryColor.value = "#3b82f6";
-      syncColorHexLabel();
+        stopEditing();
+        await refreshEntries();
+        setStatus(listStatus, "記事已更新，列表已即時同步。", "success");
+      } else {
+        const { error } = await supabaseClient.from(EVENTS_TABLE).insert(payload);
+        if (error) throw error;
 
-      // 不重新整理頁面，直接依照「目前篩選狀態」刷新列表。
-      await refreshEntries();
-      setStatus(listStatus, "記事已新增，列表已即時更新。", "success");
+        stopEditing();
+        await refreshEntries();
+        setStatus(listStatus, "記事已新增，列表已即時更新。", "success");
+      }
     } catch (error) {
       setStatus(
         listStatus,
@@ -486,6 +587,14 @@ async function initIndexPage() {
 
   // 顏色選擇器：每次變更都更新右側色碼顯示
   $("#entry-color")?.addEventListener("input", syncColorHexLabel);
+  toggleControlsButton?.addEventListener("click", () => {
+    const willExpand = controlsPanel?.classList.contains("is-collapsed");
+    setControlsExpanded(Boolean(willExpand));
+  });
+  cancelEditButton?.addEventListener("click", () => {
+    stopEditing();
+    setStatus(listStatus, "已取消修改。");
+  });
 
   // 監聽 Supabase Auth 狀態，讓登入 / 登出畫面自動切換。
   supabaseClient.auth.onAuthStateChange(async () => {
@@ -494,6 +603,8 @@ async function initIndexPage() {
 
   // 頁面初次載入時先決定顯示哪個區塊。
   switchAuthMode("login");
+  updateEditorModeUI();
+  setControlsExpanded(false);
   await togglePageBySession();
 }
 

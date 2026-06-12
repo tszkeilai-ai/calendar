@@ -254,10 +254,41 @@ h3 {
   margin-top: 14px;
 }
 
+.controls-toggle-row {
+  margin-top: 14px;
+}
+
+.controls-toggle-button {
+  width: 100%;
+}
+
+.controls-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  max-height: 1200px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.28s ease, opacity 0.22s ease, margin-top 0.22s ease;
+}
+
+.controls-panel.is-collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  pointer-events: none;
+}
+
+.controls-panel .filter-panel,
+.controls-panel .quick-entry-panel {
+  margin-top: 0;
+}
+
 .filter-controls {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1;
 }
 
 .ghost-button--small {
@@ -292,9 +323,11 @@ h3 {
 .input-group-button {
   display: flex;
   align-items: end;
+  gap: 10px;
 }
 
-.input-group-button .primary-button {
+.input-group-button .primary-button,
+.input-group-button .ghost-button {
   width: 100%;
 }
 
@@ -351,6 +384,13 @@ h3 {
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
 }
 
+.entry-date-line {
+  margin: 0 0 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
 .entry-meta {
   display: flex;
   justify-content: space-between;
@@ -401,11 +441,29 @@ h3 {
   white-space: pre-wrap;
 }
 
+.entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.edit-button {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary-dark);
+  cursor: pointer;
+}
+
 .weekday-row,
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, 1fr);
   gap: 8px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .weekday-row {
@@ -422,17 +480,21 @@ h3 {
 
 .calendar-day {
   appearance: none;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: #fff;
   padding: 8px;
-  min-height: 88px;
+  min-height: 72px;
   aspect-ratio: 4 / 3;
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .calendar-day:hover {
@@ -501,6 +563,10 @@ h3 {
   text-align: center;
 }
 
+.calendar-grid-panel {
+  overflow: hidden;
+}
+
 .detail-list .entry-item {
   background: #fbfdff;
 }
@@ -524,6 +590,12 @@ h3 {
     align-items: stretch;
   }
 
+  .filter-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .topbar-actions {
     width: 100%;
   }
@@ -540,30 +612,51 @@ h3 {
     grid-column: auto;
   }
 
+  .input-group-button {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .quick-entry-panel {
     top: 8px;
   }
 
   .weekday-row,
   .calendar-grid {
-    gap: 6px;
+    gap: 4px;
   }
 
   .calendar-day {
-    min-height: 72px;
-    padding: 6px;
+    min-height: 54px;
+    padding: 5px;
+    aspect-ratio: 1 / 1;
+  }
+
+  .day-number {
+    font-size: 0.82rem;
+  }
+
+  .weekday-row {
+    font-size: 0.82rem;
   }
 
   .event-count-badge {
-    top: 6px;
-    right: 6px;
-    min-width: 22px;
-    height: 22px;
+    top: 4px;
+    right: 4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    font-size: 0.7rem;
   }
 
   .event-dots {
-    left: 6px;
-    bottom: 6px;
-    gap: 5px;
+    left: 4px;
+    bottom: 4px;
+    gap: 4px;
+  }
+
+  .event-dots .dot {
+    width: 8px;
+    height: 8px;
   }
 }
