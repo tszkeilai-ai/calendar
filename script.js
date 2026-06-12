@@ -16,15 +16,16 @@
 
   create table public.calendar_events (
     id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references auth.users(id) on delete cascade,
     event_date date not null,
     event_time time not null,
-    topic text not null,
-    note text,
+    title text not null,
+    description text,
+    color text,
     created_at timestamptz not null default now()
   );
 
   建議再加上適當的 RLS 規則，確保使用者只能存取自己的資料。
+  （前端程式碼會依照登入狀態操作資料，但不再用 `user_id` 欄位做篩選。）
 */
 
 // ------------------------------------------------------------
@@ -128,10 +129,17 @@ function renderEventCards(targetElement, events) {
       (event) => `
         <li class="entry-item">
           <div class="entry-meta">
-            <span class="entry-time">${formatTimeLabel(event.event_time)}</span>
-            <span class="entry-topic">${escapeHtml(event.topic)}</span>
+            <div class="entry-meta-left">
+              <span
+                class="event-color-dot"
+                style="--dot-color: ${escapeHtml(event.color || "#3b82f6")}"
+                aria-hidden="true"
+              ></span>
+              <span class="entry-time">${formatTimeLabel(event.event_time)}</span>
+            </div>
+            <span class="entry-topic">${escapeHtml(event.title)}</span>
           </div>
-          <p class="entry-note">${escapeHtml(event.note?.trim() || "沒有備註")}</p>
+          <p class="entry-note">${escapeHtml(event.description?.trim() || "沒有備註")}</p>
         </li>
       `
     )
@@ -165,12 +173,14 @@ async function initIndexPage() {
   const authSubmitButton = $("#auth-submit-button");
   const authMessage = $("#auth-message");
   const logoutButton = $("#logout-button");
-  const entryDateInput = $("#entry-date");
+  const filterDateInput = $("#filter-date");
+  const quickDateInput = $("#quick-date");
   const quickEntryForm = $("#quick-entry-form");
   const listStatus = $("#list-status");
 
   // 初始化日期欄位，預設直接使用今天，方便手機上快速新增記事。
-  entryDateInput.value = selectedEntryDate;
+  filterDateInput.value = selectedEntryDate;
+  quickDateInput.value = selectedEntryDate;
   updateCurrentDateLabel(selectedEntryDate);
 
   // 切換登入 / 註冊模式。
@@ -204,16 +214,9 @@ async function initIndexPage() {
       setStatus(listStatus, "正在讀取記事資料...");
       updateCurrentDateLabel(isoDate);
 
-      const user = await getCurrentUser();
-      if (!user) {
-        renderEmptyState($("#entry-list"), "請先登入後再查看資料。");
-        return;
-      }
-
       const { data, error } = await supabaseClient
         .from(EVENTS_TABLE)
-        .select("*")
-        .eq("user_id", user.id)
+        .select("id,event_date,event_time,title,description,color")
         .eq("event_date", isoDate)
         .order("event_time", { ascending: true });
 
@@ -306,9 +309,17 @@ async function initIndexPage() {
     setStatus(authMessage, "你已登出。");
   });
 
-  // 使用者切換日期時，立即重新載入該天資料。
-  entryDateInput.addEventListener("change", async (event) => {
+  // 「歷史資料篩選器」：切換日期時，立刻只顯示該日資料。
+  filterDateInput.addEventListener("change", async (event) => {
     selectedEntryDate = event.target.value || formatDateToISO(new Date());
+    quickDateInput.value = selectedEntryDate;
+    await loadEntriesForDate(selectedEntryDate);
+  });
+
+  // 快捷輸入區內的日期：讓新增日期與篩選日期保持同步。
+  quickDateInput.addEventListener("change", async (event) => {
+    selectedEntryDate = event.target.value || formatDateToISO(new Date());
+    filterDateInput.value = selectedEntryDate;
     await loadEntriesForDate(selectedEntryDate);
   });
 
@@ -317,15 +328,16 @@ async function initIndexPage() {
     event.preventDefault();
 
     const entryTime = $("#entry-time");
-    const entryTopic = $("#entry-topic");
-    const entryNote = $("#entry-note");
+    const entryTitle = $("#entry-title");
+    const entryDescription = $("#entry-description");
+    const entryColor = $("#entry-color");
 
     if (!selectedEntryDate) {
       setStatus(listStatus, "請先選擇日期。", "error");
       return;
     }
 
-    if (!entryTime.value || !entryTopic.value.trim()) {
+    if (!entryTime.value || !entryTitle.value.trim()) {
       setStatus(listStatus, "請輸入時間與主題。", "error");
       return;
     }
@@ -333,18 +345,17 @@ async function initIndexPage() {
     try {
       setStatus(listStatus, "正在新增記事...");
 
+      // 這裡只用 getUser() 來確認登入狀態是否有效。
+      // 實際資料隔離（只看自己的資料）建議交給 Supabase RLS 來負責。
       const user = await getCurrentUser();
-      if (!user) {
-        setStatus(listStatus, "登入狀態已失效，請重新登入。", "error");
-        return;
-      }
+      if (!user) throw new Error("登入狀態已失效，請重新登入。");
 
       const payload = {
-        user_id: user.id,
         event_date: selectedEntryDate,
         event_time: entryTime.value,
-        topic: entryTopic.value.trim(),
-        note: entryNote.value.trim(),
+        title: entryTitle.value.trim(),
+        description: entryDescription.value.trim(),
+        color: entryColor.value,
       };
 
       const { error } = await supabaseClient.from(EVENTS_TABLE).insert(payload);
@@ -352,8 +363,9 @@ async function initIndexPage() {
 
       // 依照你的需求，新增成功後立即清空輸入欄位。
       entryTime.value = "";
-      entryTopic.value = "";
-      entryNote.value = "";
+      entryTitle.value = "";
+      entryDescription.value = "";
+      entryColor.value = "#3b82f6";
 
       // 不重新整理頁面，直接重新抓取同一天的資料來更新列表。
       await loadEntriesForDate(selectedEntryDate);
@@ -410,7 +422,8 @@ async function initCalendarPage() {
     try {
       setStatus(calendarStatus, "正在載入月曆資料...");
 
-      const user = await getCurrentUser();
+      // 同樣先確認登入狀態（避免 session 過期），資料隔離依賴 Supabase RLS。
+      await getCurrentUser();
       const year = baseDate.getFullYear();
       const month = baseDate.getMonth();
       const firstDate = formatDateToISO(new Date(year, month, 1));
@@ -418,8 +431,7 @@ async function initCalendarPage() {
 
       const { data, error } = await supabaseClient
         .from(EVENTS_TABLE)
-        .select("*")
-        .eq("user_id", user.id)
+        .select("id,event_date,event_time,title,description,color")
         .gte("event_date", firstDate)
         .lte("event_date", lastDate)
         .order("event_date", { ascending: true })
@@ -477,11 +489,9 @@ async function initCalendarPage() {
 
     // 先補齊月初前面的空白日期，讓整個 7 欄網格保持整齊。
     for (let i = 0; i < leadingBlankDays; i += 1) {
-      const blankCell = document.createElement("button");
-      blankCell.type = "button";
+      const blankCell = document.createElement("div");
       blankCell.className = "calendar-day is-muted";
-      blankCell.disabled = true;
-      blankCell.innerHTML = `<span class="day-number"></span><span class="day-count"></span>`;
+      blankCell.setAttribute("aria-hidden", "true");
       calendarGrid.appendChild(blankCell);
     }
 
@@ -489,6 +499,10 @@ async function initCalendarPage() {
     for (let day = 1; day <= totalDays; day += 1) {
       const isoDate = formatDateToISO(new Date(year, month, day));
       const dayEvents = eventMap[isoDate] || [];
+      const uniqueColors = Array.from(
+        new Set(dayEvents.map((item) => item.color).filter(Boolean))
+      );
+      const primaryColor = uniqueColors[0] || "#3b82f6";
       const dayButton = document.createElement("button");
 
       dayButton.type = "button";
@@ -502,9 +516,19 @@ async function initCalendarPage() {
         dayButton.classList.add("is-selected");
       }
 
+      // 核心需求（拒絕雜亂）：
+      // 1. 沒有事件的日期：只顯示日期數字，不放任何預設文字
+      // 2. 有事件的日期：用顏色小圓點 + 右上角數字顯示事件數量
+      const dotsHtml = uniqueColors
+        .slice(0, 3)
+        .map((color) => `<span class="dot" style="--dot-color: ${escapeHtml(color)}"></span>`)
+        .join("");
+
+      dayButton.style.setProperty("--event-color", primaryColor);
       dayButton.innerHTML = `
         <span class="day-number">${day}</span>
-        <span class="day-count">${dayEvents.length ? `${dayEvents.length} 筆` : "無資料"}</span>
+        ${dayEvents.length ? `<span class="event-count-badge">${dayEvents.length}</span>` : ""}
+        ${dayEvents.length ? `<div class="event-dots" aria-hidden="true">${dotsHtml}</div>` : ""}
       `;
 
       // 核心需求：點擊日期後，直接在月曆下方顯示當天所有行程詳情。

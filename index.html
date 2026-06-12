@@ -80,12 +80,13 @@
 
         <section class="panel filter-panel">
           <div class="filter-row">
-            <label class="field-label" for="entry-date">記事日期</label>
-            <input id="entry-date" type="date" class="text-input" />
+            <div>
+              <p class="eyebrow">歷史資料篩選器</p>
+              <label class="field-label" for="filter-date">篩選日期</label>
+            </div>
+            <input id="filter-date" type="date" class="text-input" />
           </div>
-          <p class="muted-text">
-            你可以先選定日期，再用下方快捷輸入區直接新增當天記事。
-          </p>
+          <p class="muted-text">更改日期後，下方列表會立刻只顯示該日已輸入的行程資料。</p>
         </section>
 
         <section class="panel quick-entry-panel" id="quick-entry-panel">
@@ -98,21 +99,26 @@
 
           <form id="quick-entry-form" class="quick-entry-form">
             <div class="input-group">
+              <label class="field-label" for="quick-date">日期</label>
+              <input id="quick-date" type="date" class="text-input" required />
+            </div>
+
+            <div class="input-group">
               <label class="field-label" for="entry-time">時間</label>
               <input id="entry-time" type="time" class="text-input" required />
             </div>
 
             <div class="input-group">
-              <label class="field-label" for="entry-topic">主題</label>
+              <label class="field-label" for="entry-title">主題</label>
               <input
-                id="entry-topic"
+                id="entry-title"
                 type="text"
                 class="text-input"
-                list="topic-suggestions"
+                list="title-suggestions"
                 placeholder="可自由輸入，也可選擇建議主題"
                 required
               />
-              <datalist id="topic-suggestions">
+              <datalist id="title-suggestions">
                 <option value="日常"></option>
                 <option value="工作"></option>
                 <option value="生日"></option>
@@ -122,18 +128,29 @@
             </div>
 
             <div class="input-group">
-              <label class="field-label" for="entry-note">備註</label>
-              <textarea
-                id="entry-note"
-                class="text-input note-input"
-                rows="3"
-                placeholder="補充今天的行程內容"
-              ></textarea>
+              <label class="field-label" for="entry-color">顏色</label>
+              <select id="entry-color" class="text-input color-select">
+                <option value="#3b82f6" selected>藍色</option>
+                <option value="#22c55e">綠色</option>
+                <option value="#ef4444">紅色</option>
+                <option value="#a855f7">紫色</option>
+                <option value="#f97316">橘色</option>
+              </select>
             </div>
 
             <div class="input-group input-group-button">
               <label class="field-label sr-only" for="add-entry-button">新增</label>
               <button type="submit" class="primary-button" id="add-entry-button">新增記事</button>
+            </div>
+
+            <div class="input-group input-group--full">
+              <label class="field-label" for="entry-description">備註</label>
+              <textarea
+                id="entry-description"
+                class="text-input note-input"
+                rows="3"
+                placeholder="補充今天的行程內容"
+              ></textarea>
             </div>
           </form>
         </section>
