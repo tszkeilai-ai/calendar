@@ -310,7 +310,7 @@ async function initIndexPage() {
     syncColorHexLabel();
     updateEditorModeUI();
     setControlsExpanded(true);
-    setStatus(listStatus, "已帶入舊資料，請直接修改後按「更新記事」。");
+    setStatus(listStatus, "已帶入舊資料，請修改後按「更新記事」，或按「取消」退出編輯。");
   }
 
   // 切換登入 / 註冊模式。
@@ -593,7 +593,8 @@ async function initIndexPage() {
   });
   cancelEditButton?.addEventListener("click", () => {
     stopEditing();
-    setStatus(listStatus, "已取消修改。");
+    setControlsExpanded(false);
+    setStatus(listStatus, "已取消修改，不會儲存任何變更。");
   });
 
   // 監聽 Supabase Auth 狀態，讓登入 / 登出畫面自動切換。
@@ -724,6 +725,9 @@ async function initCalendarPage() {
         new Set(dayEvents.map((item) => item.color).filter(Boolean))
       );
       const primaryColor = uniqueColors[0] || "#3b82f6";
+      const pillBg = hexToRgba(primaryColor, 0.92) || primaryColor;
+      const shouldShowDots = dayEvents.length >= 1 && dayEvents.length <= 3;
+      const shouldShowPill = dayEvents.length >= 4;
       const dayButton = document.createElement("button");
 
       dayButton.type = "button";
@@ -737,19 +741,34 @@ async function initCalendarPage() {
         dayButton.classList.add("is-selected");
       }
 
-      // 核心需求（拒絕雜亂）：
-      // 1. 沒有事件的日期：只顯示日期數字，不放任何預設文字
-      // 2. 有事件的日期：用顏色小圓點 + 右上角數字顯示事件數量
+      // 月曆智慧顯示規則：
+      // 1. 1~3 筆事件：顯示顏色小圓點
+      // 2. >=4 筆事件：隱藏圓點，改顯示膠囊數量標籤
+      // 3. 日期數字固定在左上，數量徽章放在右上，不再互相重疊
       const dotsHtml = uniqueColors
         .slice(0, 3)
         .map((color) => `<span class="dot" style="--dot-color: ${escapeHtml(color)}"></span>`)
         .join("");
 
       dayButton.style.setProperty("--event-color", primaryColor);
+      dayButton.style.setProperty("--pill-bg", pillBg);
       dayButton.innerHTML = `
-        <span class="day-number">${day}</span>
-        ${dayEvents.length ? `<span class="event-count-badge">${dayEvents.length}</span>` : ""}
-        ${dayEvents.length ? `<div class="event-dots" aria-hidden="true">${dotsHtml}</div>` : ""}
+        <div class="calendar-day-header">
+          <span class="day-number">${day}</span>
+          ${
+            shouldShowDots
+              ? `<span class="event-count-badge" aria-label="共有 ${dayEvents.length} 筆事件">${dayEvents.length}</span>`
+              : ""
+          }
+        </div>
+        <div class="calendar-day-footer">
+          ${shouldShowDots ? `<div class="event-dots" aria-hidden="true">${dotsHtml}</div>` : ""}
+          ${
+            shouldShowPill
+              ? `<span class="calendar-summary-pill" aria-label="共有 ${dayEvents.length} 筆事件">+${dayEvents.length}</span>`
+              : ""
+          }
+        </div>
       `;
 
       // 核心需求：點擊日期後，直接在月曆下方顯示當天所有行程詳情。
