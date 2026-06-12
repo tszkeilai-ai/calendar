@@ -84,9 +84,14 @@
               <p class="eyebrow">歷史資料篩選器</p>
               <label class="field-label" for="filter-date">篩選日期</label>
             </div>
-            <input id="filter-date" type="date" class="text-input" />
+            <div class="filter-controls">
+              <input id="filter-date" type="date" class="text-input" />
+              <button type="button" class="ghost-button ghost-button--small" id="clear-filter-button">
+                顯示全部
+              </button>
+            </div>
           </div>
-          <p class="muted-text">更改日期後，下方列表會立刻只顯示該日已輸入的行程資料。</p>
+          <p class="muted-text">未選日期時，預設顯示所有歷史資料；選定日期後才會篩選顯示該日事件。</p>
         </section>
 
         <section class="panel quick-entry-panel" id="quick-entry-panel">
@@ -129,13 +134,10 @@
 
             <div class="input-group">
               <label class="field-label" for="entry-color">顏色</label>
-              <select id="entry-color" class="text-input color-select">
-                <option value="#3b82f6" selected>藍色</option>
-                <option value="#22c55e">綠色</option>
-                <option value="#ef4444">紅色</option>
-                <option value="#a855f7">紫色</option>
-                <option value="#f97316">橘色</option>
-              </select>
+              <div class="color-picker-wrap">
+                <input id="entry-color" type="color" class="color-picker" value="#3b82f6" />
+                <span class="color-hex" id="color-hex-label">#3b82f6</span>
+              </div>
             </div>
 
             <div class="input-group input-group-button">

@@ -254,12 +254,24 @@ h3 {
   margin-top: 14px;
 }
 
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ghost-button--small {
+  padding: 10px 14px;
+  font-size: 0.92rem;
+}
+
 .quick-entry-panel {
-  position: sticky;
-  top: 12px;
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(12px);
+  /* 需求：取消 sticky，讓區塊隨頁面正常滾動，釋放手機可視空間 */
+  position: relative;
+  top: auto;
+  z-index: auto;
+  background: var(--surface);
+  backdrop-filter: none;
 }
 
 .quick-entry-form {
@@ -286,8 +298,26 @@ h3 {
   width: 100%;
 }
 
-.color-select {
-  padding-right: 10px;
+.color-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-picker {
+  width: 56px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.color-hex {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+  font-weight: 700;
 }
 
 .section-heading {

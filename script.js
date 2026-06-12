@@ -192,6 +192,7 @@ async function getCurrentUser() {
 // ------------------------------------------------------------
 
 let authMode = "login";
+// 快捷輸入區預設日期：今天（新增事件一定需要日期）
 let selectedEntryDate = formatDateToISO(new Date());
 
 async function initIndexPage() {
@@ -204,14 +205,28 @@ async function initIndexPage() {
   const authMessage = $("#auth-message");
   const logoutButton = $("#logout-button");
   const filterDateInput = $("#filter-date");
+  const clearFilterButton = $("#clear-filter-button");
   const quickDateInput = $("#quick-date");
   const quickEntryForm = $("#quick-entry-form");
   const listStatus = $("#list-status");
+  const colorHexLabel = $("#color-hex-label");
 
-  // 初始化日期欄位，預設直接使用今天，方便手機上快速新增記事。
-  filterDateInput.value = selectedEntryDate;
+  // 歷史資料篩選日期（空字串代表「不篩選，顯示全部」）
+  let filterDate = "";
+
+  // 初始化：
+  // - 篩選器預設不選日期（顯示全部歷史資料）
+  // - 快捷輸入區預設今天（方便快速新增）
+  filterDateInput.value = "";
   quickDateInput.value = selectedEntryDate;
-  updateCurrentDateLabel(selectedEntryDate);
+  updateCurrentDateLabel(filterDate);
+
+  // 顏色選擇器：同步顯示目前色碼（讓使用者知道自己選了什麼顏色）
+  function syncColorHexLabel() {
+    if (!colorHexLabel) return;
+    colorHexLabel.textContent = normalizeHexColor($("#entry-color")?.value, "#3b82f6");
+  }
+  syncColorHexLabel();
 
   // 切換登入 / 註冊模式。
   function switchAuthMode(mode) {
@@ -234,7 +249,7 @@ async function initIndexPage() {
 
     if (isLoggedIn) {
       setStatus(authMessage, "");
-      await loadEntriesForDate(selectedEntryDate);
+      await refreshEntries();
     }
   }
 
@@ -274,10 +289,53 @@ async function initIndexPage() {
     }
   }
 
+  // 未選擇日期時：載入「所有」歷史資料
+  async function loadAllEntries() {
+    try {
+      setStatus(listStatus, "正在讀取所有歷史資料...");
+      updateCurrentDateLabel("");
+
+      const user = await getCurrentUser();
+      if (!user) throw new Error("登入狀態已失效，請重新登入。");
+
+      const { data, error } = await supabaseClient
+        .from(EVENTS_TABLE)
+        .select("id,user_id,event_date,event_time,title,description,color")
+        .eq("user_id", user.id)
+        .order("event_date", { ascending: false })
+        .order("event_time", { ascending: true });
+
+      if (error) throw error;
+
+      renderEventCards($("#entry-list"), data || []);
+      setStatus(listStatus, "已載入所有歷史資料。", "success");
+    } catch (error) {
+      renderEmptyState($("#entry-list"), "目前沒有資料。");
+      setStatus(
+        listStatus,
+        `讀取失敗：${getErrorMessage(
+          error,
+          "暫時無法讀取資料，請確認 Supabase 資料表與 RLS 規則是否已設定完成。"
+        )}`,
+        "error"
+      );
+    }
+  }
+
+  // 統一刷新列表（依據目前 filterDate 決定要載入全部或單日）
+  async function refreshEntries() {
+    if (!filterDate) {
+      await loadAllEntries();
+      return;
+    }
+    await loadEntriesForDate(filterDate);
+  }
+
   // 把當前選取日期顯示在列表右上角。
   function updateCurrentDateLabel(isoDate) {
     const label = $("#current-date-label");
-    if (label) label.textContent = formatDateLabel(isoDate);
+    if (!label) return;
+    label.textContent = isoDate ? formatDateLabel(isoDate) : "全部";
   }
 
   // 處理登入或註冊送出。
@@ -346,18 +404,24 @@ async function initIndexPage() {
     setStatus(authMessage, "你已登出。");
   });
 
-  // 「歷史資料篩選器」：切換日期時，立刻只顯示該日資料。
+  // 「歷史資料篩選器」：
+  // - 未選日期（空）：顯示全部
+  // - 選定日期：只顯示該日事件
   filterDateInput.addEventListener("change", async (event) => {
-    selectedEntryDate = event.target.value || formatDateToISO(new Date());
-    quickDateInput.value = selectedEntryDate;
-    await loadEntriesForDate(selectedEntryDate);
+    filterDate = event.target.value || "";
+    await refreshEntries();
   });
 
-  // 快捷輸入區內的日期：讓新增日期與篩選日期保持同步。
+  // 「顯示全部」：一鍵清除日期篩選
+  clearFilterButton?.addEventListener("click", async () => {
+    filterDate = "";
+    filterDateInput.value = "";
+    await refreshEntries();
+  });
+
+  // 快捷輸入區內的日期：只影響「新增事件的日期」，不再強制同步到篩選器
   quickDateInput.addEventListener("change", async (event) => {
     selectedEntryDate = event.target.value || formatDateToISO(new Date());
-    filterDateInput.value = selectedEntryDate;
-    await loadEntriesForDate(selectedEntryDate);
   });
 
   // 核心功能：快捷輸入區新增記事。
@@ -406,9 +470,10 @@ async function initIndexPage() {
       entryTitle.value = "";
       entryDescription.value = "";
       entryColor.value = "#3b82f6";
+      syncColorHexLabel();
 
-      // 不重新整理頁面，直接重新抓取同一天的資料來更新列表。
-      await loadEntriesForDate(selectedEntryDate);
+      // 不重新整理頁面，直接依照「目前篩選狀態」刷新列表。
+      await refreshEntries();
       setStatus(listStatus, "記事已新增，列表已即時更新。", "success");
     } catch (error) {
       setStatus(
@@ -418,6 +483,9 @@ async function initIndexPage() {
       );
     }
   });
+
+  // 顏色選擇器：每次變更都更新右側色碼顯示
+  $("#entry-color")?.addEventListener("input", syncColorHexLabel);
 
   // 監聽 Supabase Auth 狀態，讓登入 / 登出畫面自動切換。
   supabaseClient.auth.onAuthStateChange(async () => {
