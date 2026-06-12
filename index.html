@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>手機版月曆記事板</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./script.js" defer></script>
+  </head>
+  <body data-page="index">
+    <main class="page-shell">
+      <section class="panel auth-panel" id="auth-section">
+        <div class="brand-block">
+          <p class="eyebrow">Supabase 雲端同步</p>
+          <h1>手機版月曆記事板</h1>
+          <p class="muted-text">
+            先登入或註冊帳號，登入成功後即可管理記事資料，並切換到月曆頁查看每天的行程內容。
+          </p>
+        </div>
+
+        <div class="auth-switch" role="tablist" aria-label="登入或註冊">
+          <button
+            type="button"
+            class="tab-button is-active"
+            id="login-tab"
+            data-mode="login"
+          >
+            登入
+          </button>
+          <button type="button" class="tab-button" id="register-tab" data-mode="register">
+            註冊
+          </button>
+        </div>
+
+        <form id="auth-form" class="auth-form">
+          <label class="field-label" for="auth-email">電子郵件</label>
+          <input
+            id="auth-email"
+            name="email"
+            type="email"
+            class="text-input"
+            autocomplete="email"
+            placeholder="請輸入電子郵件"
+            required
+          />
+
+          <label class="field-label" for="auth-password">密碼</label>
+          <input
+            id="auth-password"
+            name="password"
+            type="password"
+            class="text-input"
+            autocomplete="current-password"
+            placeholder="請輸入至少 6 碼密碼"
+            minlength="6"
+            required
+          />
+
+          <button type="submit" class="primary-button" id="auth-submit-button">
+            登入
+          </button>
+        </form>
+
+        <p id="auth-message" class="status-message" aria-live="polite"></p>
+      </section>
+
+      <section class="panel app-panel hidden" id="app-section">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">資料管理頁</p>
+            <h2>我的記事資料</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <a class="secondary-button" href="./calendar.html">前往月曆頁</a>
+            <button type="button" class="ghost-button" id="logout-button">登出</button>
+          </div>
+        </header>
+
+        <section class="panel filter-panel">
+          <div class="filter-row">
+            <label class="field-label" for="entry-date">記事日期</label>
+            <input id="entry-date" type="date" class="text-input" />
+          </div>
+          <p class="muted-text">
+            你可以先選定日期，再用下方快捷輸入區直接新增當天記事。
+          </p>
+        </section>
+
+        <section class="panel quick-entry-panel" id="quick-entry-panel">
+          <div class="sticky-panel-header">
+            <div>
+              <p class="eyebrow">頂部固定輸入</p>
+              <h3>快捷輸入區</h3>
+            </div>
+          </div>
+
+          <form id="quick-entry-form" class="quick-entry-form">
+            <div class="input-group">
+              <label class="field-label" for="entry-time">時間</label>
+              <input id="entry-time" type="time" class="text-input" required />
+            </div>
+
+            <div class="input-group">
+              <label class="field-label" for="entry-topic">主題</label>
+              <input
+                id="entry-topic"
+                type="text"
+                class="text-input"
+                list="topic-suggestions"
+                placeholder="可自由輸入，也可選擇建議主題"
+                required
+              />
+              <datalist id="topic-suggestions">
+                <option value="日常"></option>
+                <option value="工作"></option>
+                <option value="生日"></option>
+                <option value="開餐"></option>
+                <option value="娛樂"></option>
+              </datalist>
+            </div>
+
+            <div class="input-group">
+              <label class="field-label" for="entry-note">備註</label>
+              <textarea
+                id="entry-note"
+                class="text-input note-input"
+                rows="3"
+                placeholder="補充今天的行程內容"
+              ></textarea>
+            </div>
+
+            <div class="input-group input-group-button">
+              <label class="field-label sr-only" for="add-entry-button">新增</label>
+              <button type="submit" class="primary-button" id="add-entry-button">新增記事</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel list-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">即時更新</p>
+              <h3>記事列表</h3>
+            </div>
+            <span id="current-date-label" class="date-chip"></span>
+          </div>
+
+          <p id="list-status" class="status-message" aria-live="polite"></p>
+          <ul id="entry-list" class="entry-list"></ul>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

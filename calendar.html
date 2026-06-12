@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>月曆頁｜手機版月曆記事板</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./script.js" defer></script>
+  </head>
+  <body data-page="calendar">
+    <main class="page-shell">
+      <section class="panel calendar-page-panel">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">月曆頁</p>
+            <h1>我的月曆記事</h1>
+          </div>
+
+          <div class="topbar-actions">
+            <a class="secondary-button" href="./index.html">回資料管理頁</a>
+            <button type="button" class="ghost-button" id="calendar-logout-button">登出</button>
+          </div>
+        </header>
+
+        <section class="panel calendar-toolbar">
+          <button type="button" class="ghost-button" id="prev-month-button">上個月</button>
+          <div class="calendar-title-wrap">
+            <p class="eyebrow">當前月份</p>
+            <h2 id="calendar-month-title">載入中...</h2>
+          </div>
+          <button type="button" class="ghost-button" id="next-month-button">下個月</button>
+        </section>
+
+        <section class="panel calendar-grid-panel">
+          <div class="weekday-row" aria-hidden="true">
+            <span>日</span>
+            <span>一</span>
+            <span>二</span>
+            <span>三</span>
+            <span>四</span>
+            <span>五</span>
+            <span>六</span>
+          </div>
+
+          <div id="calendar-grid" class="calendar-grid"></div>
+        </section>
+
+        <section class="panel detail-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">點擊看詳情</p>
+              <h3 id="selected-date-title">請先點擊日期</h3>
+            </div>
+          </div>
+
+          <p id="calendar-status" class="status-message" aria-live="polite"></p>
+          <ul id="selected-date-list" class="entry-list detail-list"></ul>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
