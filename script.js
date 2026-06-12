@@ -17,7 +17,6 @@ const syncStatus = document.querySelector("#syncStatus");
 const entryTableBody = document.querySelector("#entryTableBody");
 const entryRowTemplate = document.querySelector("#entryRowTemplate");
 const filterSummary = document.querySelector("#filterSummary");
-const addRowButton = document.querySelector("#addRowButton");
 const saveButton = document.querySelector("#saveButton");
 const sampleButton = document.querySelector("#sampleButton");
 const clearButton = document.querySelector("#clearButton");
@@ -25,6 +24,13 @@ const filterExactDate = document.querySelector("#filterExactDate");
 const filterStartDate = document.querySelector("#filterStartDate");
 const filterEndDate = document.querySelector("#filterEndDate");
 const resetFilterButton = document.querySelector("#resetFilterButton");
+const toggleFilterButton = document.querySelector("#toggleFilterButton");
+const filterPanel = document.querySelector("#filterPanel");
+const quickAddForm = document.querySelector("#quickAddForm");
+const quickTimeInput = document.querySelector("#quickTimeInput");
+const quickCategoryInput = document.querySelector("#quickCategoryInput");
+const quickNoteInput = document.querySelector("#quickNoteInput");
+const quickAddTarget = document.querySelector("#quickAddTarget");
 
 const calendarGrid = document.querySelector("#calendarGrid");
 const calendarTitle = document.querySelector("#calendarTitle");
@@ -40,6 +46,7 @@ const state = {
   user: null,
   entries: [],
   selectedDate: PAGE_TYPE === "calendar" ? formatDate(new Date()) : "",
+  showFilterPanel: false,
   filters: {
     exactDate: "",
     startDate: "",
@@ -140,10 +147,10 @@ function bindAuthEvents() {
 }
 
 function bindManageEvents() {
-  if (addRowButton) {
-    addRowButton.addEventListener("click", () => {
-      state.entries.push(createDraftEntry());
-      renderTable();
+  if (quickAddForm) {
+    quickAddForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await handleQuickAdd();
     });
   }
 
@@ -169,6 +176,7 @@ function bindManageEvents() {
       state.entries = [...state.entries.filter((entry) => !entry.isDraft || hasMeaningfulContent(entry)), ...samples];
       renderTable();
       renderCalendar();
+      renderQuickAddTarget();
       updateSyncStatus("示例已加入，按「立即同步」或直接修改日期後會上載。");
     });
   }
@@ -185,9 +193,10 @@ function bindManageEvents() {
           const { error } = await state.supabase.from(TABLE_NAME).delete().in("id", persistedIds);
           if (error) throw error;
         }
-        state.entries = [createDraftEntry()];
+        state.entries = [];
         renderTable();
         renderCalendar();
+        renderQuickAddTarget();
         updateSyncStatus("已清空你帳號下的日曆資料。");
       } catch (error) {
         updateSyncStatus(`清空失敗：${error.message}`, true);
@@ -206,7 +215,15 @@ function bindManageEvents() {
       if (filterExactDate) filterExactDate.value = "";
       if (filterStartDate) filterStartDate.value = "";
       if (filterEndDate) filterEndDate.value = "";
+      setFilterPanelOpen(false);
       renderTable();
+      renderQuickAddTarget();
+    });
+  }
+
+  if (toggleFilterButton) {
+    toggleFilterButton.addEventListener("click", () => {
+      setFilterPanelOpen(!state.showFilterPanel);
     });
   }
 }
@@ -251,13 +268,14 @@ async function handleSessionChange(session) {
   cleanupRealtimeChannel();
 
   if (!state.user) {
-    state.entries = PAGE_TYPE === "manage" ? [createDraftEntry()] : [];
+    state.entries = [];
     if (PAGE_TYPE === "calendar") {
       state.selectedDate = formatDate(new Date());
     }
     renderTable();
     renderCalendar();
     renderSelectedDateEvents();
+    renderQuickAddTarget();
     updateSyncStatus("未登入。");
     return;
   }
@@ -313,13 +331,10 @@ async function loadEntriesFromCloud() {
     state.selectedDate = formatDate(new Date());
   }
 
-  if (PAGE_TYPE === "manage" && state.entries.length === 0) {
-    state.entries.push(createDraftEntry());
-  }
-
   renderTable();
   renderCalendar();
   renderSelectedDateEvents();
+  renderQuickAddTarget();
   updateSyncStatus("雲端資料已同步。");
 }
 
@@ -606,10 +621,6 @@ async function saveAllEntries() {
   for (const entry of candidates) {
     await saveEntry(entry.id);
   }
-
-  if (PAGE_TYPE === "manage" && state.entries.length === 0) {
-    state.entries.push(createDraftEntry());
-  }
 }
 
 async function saveEntry(entryId) {
@@ -660,9 +671,6 @@ async function deleteEntry(entryId) {
 
   if (entry.isDraft) {
     state.entries = state.entries.filter((item) => item.id !== entryId);
-    if (PAGE_TYPE === "manage" && state.entries.length === 0) {
-      state.entries.push(createDraftEntry());
-    }
     renderTable();
     renderCalendar();
     renderSelectedDateEvents();
@@ -674,9 +682,6 @@ async function deleteEntry(entryId) {
     if (error) throw error;
 
     state.entries = state.entries.filter((item) => item.id !== entryId);
-    if (PAGE_TYPE === "manage" && state.entries.length === 0) {
-      state.entries.push(createDraftEntry());
-    }
     renderTable();
     renderCalendar();
     renderSelectedDateEvents();
@@ -692,7 +697,9 @@ function handleFilterChange() {
     startDate: filterStartDate?.value || "",
     endDate: filterEndDate?.value || ""
   };
+  setFilterPanelOpen(hasActiveFilters());
   renderTable();
+  renderQuickAddTarget();
 }
 
 function getFilteredEntries() {
@@ -735,6 +742,87 @@ function updateFilterSummary(count) {
   }
 
   filterSummary.textContent = `現正顯示全部 ${count} 筆資料，可直接像 Excel 一樣逐行輸入，再自動同步。`;
+}
+
+async function handleQuickAdd() {
+  if (!state.user) return;
+
+  const targetDate = getQuickAddDate();
+  const time = quickTimeInput?.value || "";
+  const category = quickCategoryInput?.value || DEFAULT_CATEGORY;
+  const note = quickNoteInput?.value.trim() || "";
+
+  if (!time && !note && category === DEFAULT_CATEGORY) {
+    updateSyncStatus("請至少輸入時間或備註，再新增資料。", true);
+    quickCategoryInput?.focus();
+    return;
+  }
+
+  const payload = {
+    user_id: state.user.id,
+    event_date: targetDate,
+    event_time: normalizeTimeForDb(time),
+    category,
+    note,
+    color: DEFAULT_COLOR
+  };
+
+  try {
+    updateSyncStatus("新增資料中...");
+    const { data, error } = await state.supabase
+      .from(TABLE_NAME)
+      .insert(payload)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+
+    state.entries = [...state.entries.filter((entry) => entry.id !== data.id), mapDbRowToEntry(data)].sort(sortEntriesByDateTime);
+    renderTable();
+    renderCalendar();
+    renderSelectedDateEvents();
+    clearQuickAddForm();
+    updateSyncStatus(`已新增到 ${formatDateForDisplay(targetDate)}。`);
+  } catch (error) {
+    updateSyncStatus(`新增失敗：${error.message}`, true);
+  }
+}
+
+function clearQuickAddForm() {
+  if (quickTimeInput) quickTimeInput.value = "";
+  if (quickCategoryInput) quickCategoryInput.value = DEFAULT_CATEGORY;
+  if (quickNoteInput) quickNoteInput.value = "";
+  quickCategoryInput?.focus();
+}
+
+function getQuickAddDate() {
+  return state.filters.exactDate || formatDate(new Date());
+}
+
+function renderQuickAddTarget() {
+  if (!quickAddTarget) return;
+
+  const targetDate = getQuickAddDate();
+  const targetText = state.filters.exactDate
+    ? `目前會新增到指定日期：${formatDateForDisplay(targetDate)}`
+    : `未設定指定日期時，新增項目會自動加入今天：${formatDateForDisplay(targetDate)}`;
+
+  quickAddTarget.textContent = targetText;
+}
+
+function hasActiveFilters() {
+  return Boolean(state.filters.exactDate || state.filters.startDate || state.filters.endDate);
+}
+
+function setFilterPanelOpen(shouldOpen) {
+  state.showFilterPanel = shouldOpen;
+  if (filterPanel) {
+    filterPanel.hidden = !shouldOpen;
+  }
+  if (toggleFilterButton) {
+    toggleFilterButton.setAttribute("aria-expanded", String(shouldOpen));
+    toggleFilterButton.textContent = shouldOpen ? "收起搜尋" : "搜尋";
+  }
 }
 
 function createDraftEntry(initialValues = {}) {

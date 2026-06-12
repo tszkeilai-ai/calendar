@@ -57,7 +57,7 @@
       <div>
         <p class="eyebrow">Supabase 雲端同步</p>
         <h1>資料管理頁</h1>
-        <p class="subtitle">輸入、修改、刪除同日期篩選都喺呢一頁完成，資料會即時同步到雲端。</p>
+        <p class="subtitle">頂部可快速連續新增資料，下方列表可再修改、刪除同同步到雲端。</p>
       </div>
       <div class="hero-actions hero-actions-stack">
         <div class="account-panel">
@@ -65,7 +65,6 @@
           <button id="logoutButton" class="secondary-button" type="button">登出</button>
         </div>
         <div class="action-row">
-          <button id="addRowButton" class="primary-button" type="button">新增項目</button>
           <button id="saveButton" class="secondary-button" type="button">立即同步</button>
         </div>
         <p id="syncStatus" class="sync-status">準備同步</p>
@@ -73,10 +72,43 @@
     </header>
 
     <main class="single-layout">
-      <section class="panel">
+      <section class="panel quick-entry-panel">
+        <div class="panel-header quick-entry-header">
+          <div>
+            <h2>快捷輸入</h2>
+            <p id="quickAddTarget">未設定指定日期時，新增項目會自動加入今天。</p>
+          </div>
+          <button id="toggleFilterButton" class="secondary-button filter-toggle-button" type="button" aria-expanded="false" aria-controls="filterPanel">搜尋</button>
+        </div>
+
+        <form id="quickAddForm" class="quick-entry-form">
+          <label class="field">
+            <span>時間</span>
+            <input id="quickTimeInput" name="quickTimeInput" type="time">
+          </label>
+          <label class="field">
+            <span>主題</span>
+            <select id="quickCategoryInput" name="quickCategoryInput">
+              <option value="生日">生日</option>
+              <option value="工作" selected>工作</option>
+              <option value="假期">假期</option>
+              <option value="日常">日常</option>
+              <option value="開餐">開餐</option>
+              <option value="娛樂">娛樂</option>
+            </select>
+          </label>
+          <label class="field quick-note-field">
+            <span>備註</span>
+            <input id="quickNoteInput" name="quickNoteInput" type="text" placeholder="輸入備註後按新增">
+          </label>
+          <button id="quickAddButton" class="primary-button quick-add-button" type="submit">新增</button>
+        </form>
+      </section>
+
+      <section id="filterPanel" class="panel filter-panel" hidden>
         <div class="panel-header">
           <div>
-            <h2>日期篩選</h2>
+            <h2>搜尋與篩選</h2>
             <p>支援指定日期、開始日期、結束日期，方便之後查找同修改。</p>
           </div>
         </div>
