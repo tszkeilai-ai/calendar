@@ -31,12 +31,15 @@ const calendarTitle = document.querySelector("#calendarTitle");
 const prevMonthButton = document.querySelector("#prevMonthButton");
 const nextMonthButton = document.querySelector("#nextMonthButton");
 const todayButton = document.querySelector("#todayButton");
+const selectedDateTitle = document.querySelector("#selectedDateTitle");
+const selectedDateEvents = document.querySelector("#selectedDateEvents");
 
 const state = {
   supabase: null,
   session: null,
   user: null,
   entries: [],
+  selectedDate: PAGE_TYPE === "calendar" ? formatDate(new Date()) : "",
   filters: {
     exactDate: "",
     startDate: "",
@@ -249,8 +252,12 @@ async function handleSessionChange(session) {
 
   if (!state.user) {
     state.entries = PAGE_TYPE === "manage" ? [createDraftEntry()] : [];
+    if (PAGE_TYPE === "calendar") {
+      state.selectedDate = formatDate(new Date());
+    }
     renderTable();
     renderCalendar();
+    renderSelectedDateEvents();
     updateSyncStatus("未登入。");
     return;
   }
@@ -302,12 +309,17 @@ async function loadEntriesFromCloud() {
   const cloudEntries = (data || []).map(mapDbRowToEntry);
   state.entries = [...cloudEntries, ...draftEntries];
 
+  if (PAGE_TYPE === "calendar" && !state.selectedDate) {
+    state.selectedDate = formatDate(new Date());
+  }
+
   if (PAGE_TYPE === "manage" && state.entries.length === 0) {
     state.entries.push(createDraftEntry());
   }
 
   renderTable();
   renderCalendar();
+  renderSelectedDateEvents();
   updateSyncStatus("雲端資料已同步。");
 }
 
@@ -418,6 +430,9 @@ function renderCalendar() {
 
     const dayCell = document.createElement("article");
     dayCell.className = "calendar-day";
+    dayCell.tabIndex = 0;
+    dayCell.setAttribute("role", "button");
+    dayCell.setAttribute("aria-label", `${dateKey} 的事件`);
 
     if (cellDate.getMonth() !== month) {
       dayCell.classList.add("other-month");
@@ -425,6 +440,10 @@ function renderCalendar() {
 
     if (isSameDate(cellDate, new Date())) {
       dayCell.classList.add("is-today");
+    }
+
+    if (state.selectedDate === dateKey) {
+      dayCell.classList.add("is-selected");
     }
 
     const dayHeader = document.createElement("div");
@@ -475,9 +494,68 @@ function renderCalendar() {
       eventList.appendChild(moreIndicator);
     }
 
+    dayCell.addEventListener("click", () => handleDateSelection(dateKey));
+    dayCell.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        handleDateSelection(dateKey);
+      }
+    });
+
     dayCell.appendChild(eventList);
     calendarGrid.appendChild(dayCell);
   }
+}
+
+function handleDateSelection(dateKey) {
+  state.selectedDate = dateKey;
+  renderCalendar();
+  renderSelectedDateEvents();
+
+  if (selectedDateEvents) {
+    selectedDateEvents.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function renderSelectedDateEvents() {
+  if (!selectedDateEvents || !selectedDateTitle) return;
+
+  if (!state.selectedDate) {
+    selectedDateTitle.textContent = "按一下月曆日期，即可查看當日完整行程。";
+    selectedDateEvents.innerHTML = '<p class="empty-detail-message">尚未選擇日期。</p>';
+    return;
+  }
+
+  const items = state.entries
+    .filter((entry) => !entry.isDraft && entry.date === state.selectedDate)
+    .sort(sortEntriesByDateTime);
+
+  selectedDateTitle.textContent = `${formatDateForDisplay(state.selectedDate)} 的完整行程`;
+
+  if (items.length === 0) {
+    selectedDateEvents.innerHTML = '<p class="empty-detail-message">當日沒有任何事件。</p>';
+    return;
+  }
+
+  selectedDateEvents.innerHTML = items
+    .map((entry) => {
+      const textColor = getReadableTextColor(entry.color || DEFAULT_COLOR);
+      const timeText = formatDisplayTime(entry.time);
+      const noteText = escapeHtml(entry.note || "沒有備註");
+      const categoryText = escapeHtml(entry.category || "未分類");
+      const badgeStyle = `background:${entry.color || DEFAULT_COLOR};color:${textColor};`;
+
+      return `
+        <article class="detail-event-card">
+          <div class="detail-event-top">
+            <span class="detail-time">${timeText}</span>
+            <span class="detail-category" style="${badgeStyle}">${categoryText}</span>
+          </div>
+          <p class="detail-note">${noteText}</p>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 async function updateEntry(entryId, key, value) {
@@ -490,6 +568,7 @@ async function updateEntry(entryId, key, value) {
     renderTable();
   }
   renderCalendar();
+  renderSelectedDateEvents();
 
   const entry = state.entries.find((item) => item.id === entryId);
   if (!entry || !state.user) return;
@@ -563,6 +642,7 @@ async function saveEntry(entryId) {
     });
     renderTable();
     renderCalendar();
+    renderSelectedDateEvents();
     return;
   }
 
@@ -585,6 +665,7 @@ async function deleteEntry(entryId) {
     }
     renderTable();
     renderCalendar();
+    renderSelectedDateEvents();
     return;
   }
 
@@ -598,6 +679,7 @@ async function deleteEntry(entryId) {
     }
     renderTable();
     renderCalendar();
+    renderSelectedDateEvents();
     updateSyncStatus("項目已刪除並同步。");
   } catch (error) {
     updateSyncStatus(`刪除失敗：${error.message}`, true);
@@ -723,6 +805,21 @@ function getReadableTextColor(hexColor) {
   const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
 
   return luminance > 0.68 ? "#162033" : "#ffffff";
+}
+
+function formatDateForDisplay(dateString) {
+  if (!dateString) return "";
+  const date = new Date(`${dateString}T00:00:00`);
+  return `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function startOfMonth(date) {

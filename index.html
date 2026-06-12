@@ -113,7 +113,7 @@
         </div>
 
         <div class="table-wrap">
-          <table>
+          <table class="manage-table">
             <thead>
               <tr>
                 <th>日期</th>
@@ -133,13 +133,13 @@
 
   <template id="entryRowTemplate">
     <tr>
-      <td>
+      <td data-label="日期">
         <input class="entry-date" type="date">
       </td>
-      <td>
+      <td data-label="時間">
         <input class="entry-time" type="time">
       </td>
-      <td>
+      <td data-label="主題">
         <select class="entry-category">
           <option value="生日">生日</option>
           <option value="工作">工作</option>
@@ -149,13 +149,13 @@
           <option value="娛樂">娛樂</option>
         </select>
       </td>
-      <td>
+      <td data-label="備註">
         <input class="entry-note" type="text" placeholder="輸入備註">
       </td>
-      <td>
+      <td data-label="顏色">
         <input class="entry-color" type="color" value="#4f46e5">
       </td>
-      <td>
+      <td data-label="操作">
         <button class="delete-row-button" type="button">刪除</button>
       </td>
     </tr>

@@ -370,6 +370,12 @@ td input[type="color"] {
   background: #fff8f8;
 }
 
+.calendar-day.is-selected {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 2px rgba(55, 93, 251, 0.18);
+  background: #f4f7ff;
+}
+
 .calendar-day-header {
   display: flex;
   justify-content: flex-end;
@@ -456,6 +462,60 @@ td input[type="color"] {
   font-weight: 700;
   color: var(--muted);
   padding: 0 2px;
+}
+
+.selected-date-events {
+  display: grid;
+  gap: 12px;
+}
+
+.empty-detail-message {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f7f9fc;
+  color: var(--muted);
+}
+
+.detail-event-card {
+  border: 1px solid #e6eef8;
+  border-radius: 16px;
+  padding: 14px;
+  background: #fbfcff;
+  box-shadow: 0 10px 24px rgba(18, 38, 63, 0.06);
+}
+
+.detail-event-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.detail-time {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-category {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.detail-note {
+  margin: 0;
+  color: #314155;
+  line-height: 1.6;
+  word-break: break-word;
 }
 
 @media (max-width: 1100px) {
@@ -550,5 +610,80 @@ td input[type="color"] {
   .event-time,
   .more-events {
     font-size: 9px;
+  }
+
+  .detail-event-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .detail-event-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .detail-time {
+    font-size: 13px;
+  }
+
+  .detail-category {
+    font-size: 11px;
+    padding: 5px 9px;
+  }
+
+  .manage-table thead {
+    display: none;
+  }
+
+  .manage-table,
+  .manage-table tbody,
+  .manage-table tr,
+  .manage-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .manage-table tr {
+    border: 1px solid #e6eef8;
+    border-radius: 16px;
+    background: #fbfcff;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 10px 24px rgba(18, 38, 63, 0.06);
+  }
+
+  .manage-table td {
+    border-bottom: 0;
+    padding: 0;
+    margin-bottom: 12px;
+  }
+
+  .manage-table td:last-child {
+    margin-bottom: 0;
+  }
+
+  .manage-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .manage-table td[data-label="備註"] input,
+  .manage-table td[data-label="主題"] select,
+  .manage-table td[data-label="日期"] input,
+  .manage-table td[data-label="時間"] input {
+    width: 100%;
+  }
+
+  .manage-table .delete-row-button {
+    width: 100%;
+  }
+
+  .table-wrap {
+    overflow-x: visible;
   }
 }
