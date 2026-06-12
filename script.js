@@ -142,9 +142,10 @@ function renderEmptyState(targetElement, message) {
 // - showDate: 是否顯示每筆資料的日期
 // - editable: 是否顯示「修改」按鈕
 // - onEdit: 點擊修改後要執行的函式
+// - onDelete: 點擊刪除後要執行的函式
 function renderEventCards(targetElement, events, options = {}) {
   if (!targetElement) return;
-  const { showDate = false, editable = false, onEdit = null } = options;
+  const { showDate = false, editable = false, onEdit = null, onDelete = null } = options;
 
   if (!events.length) {
     renderEmptyState(targetElement, "目前沒有資料。");
@@ -183,6 +184,9 @@ function renderEventCards(targetElement, events, options = {}) {
                   <button type="button" class="edit-button" data-edit-id="${escapeHtml(event.id)}">
                     修改
                   </button>
+                  <button type="button" class="delete-button" data-delete-id="${escapeHtml(event.id)}">
+                    剷除
+                  </button>
                 </div>
               `
               : ""
@@ -196,6 +200,14 @@ function renderEventCards(targetElement, events, options = {}) {
     targetElement.querySelectorAll("[data-edit-id]").forEach((button) => {
       button.addEventListener("click", () => {
         onEdit(button.dataset.editId);
+      });
+    });
+  }
+
+  if (editable && typeof onDelete === "function") {
+    targetElement.querySelectorAll("[data-delete-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        onDelete(button.dataset.deleteId);
       });
     });
   }
@@ -313,6 +325,47 @@ async function initIndexPage() {
     setStatus(listStatus, "已帶入舊資料，請修改後按「更新記事」，或按「取消」退出編輯。");
   }
 
+  async function deleteEntry(entryId) {
+    const targetEntry = latestRenderedEntries.find((entry) => entry.id === entryId);
+    if (!targetEntry) return;
+
+    const shouldDelete = window.confirm(
+      `確定要剷除 ${formatDateLabel(targetEntry.event_date)} ${formatTimeLabel(
+        targetEntry.event_time
+      )} 的「${targetEntry.title}」嗎？`
+    );
+
+    if (!shouldDelete) return;
+
+    try {
+      setStatus(listStatus, "正在剷除記事...");
+
+      const user = await getCurrentUser();
+      if (!user) throw new Error("登入狀態已失效，請重新登入。");
+
+      const { error } = await supabaseClient
+        .from(EVENTS_TABLE)
+        .delete()
+        .eq("id", entryId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      if (editingEntryId === entryId) {
+        stopEditing();
+      }
+
+      await refreshEntries();
+      setStatus(listStatus, "記事已成功剷除。", "success");
+    } catch (error) {
+      setStatus(
+        listStatus,
+        getErrorMessage(error, "刪除資料失敗，請檢查資料表與權限設定。"),
+        "error"
+      );
+    }
+  }
+
   // 切換登入 / 註冊模式。
   function switchAuthMode(mode) {
     authMode = mode;
@@ -362,6 +415,7 @@ async function initIndexPage() {
         editable: true,
         showDate: false,
         onEdit: startEditing,
+        onDelete: deleteEntry,
       });
       setStatus(listStatus, `已載入 ${formatDateLabel(isoDate)} 的記事資料。`, "success");
     } catch (error) {
@@ -402,6 +456,7 @@ async function initIndexPage() {
         editable: true,
         showDate: true,
         onEdit: startEditing,
+        onDelete: deleteEntry,
       });
       setStatus(listStatus, "已載入所有歷史資料。", "success");
     } catch (error) {
@@ -744,7 +799,8 @@ async function initCalendarPage() {
       // 月曆智慧顯示規則：
       // 1. 1~3 筆事件：顯示顏色小圓點
       // 2. >=4 筆事件：隱藏圓點，改顯示膠囊數量標籤
-      // 3. 日期數字固定在左上，數量徽章放在右上，不再互相重疊
+      // 3. 1~3 筆時完全不顯示任何數量數字，只保留圓點
+      // 4. 日期數字固定在左上，底部標記區與數字完全分離，避免相撞
       const dotsHtml = uniqueColors
         .slice(0, 3)
         .map((color) => `<span class="dot" style="--dot-color: ${escapeHtml(color)}"></span>`)
@@ -755,11 +811,6 @@ async function initCalendarPage() {
       dayButton.innerHTML = `
         <div class="calendar-day-header">
           <span class="day-number">${day}</span>
-          ${
-            shouldShowDots
-              ? `<span class="event-count-badge" aria-label="共有 ${dayEvents.length} 筆事件">${dayEvents.length}</span>`
-              : ""
-          }
         </div>
         <div class="calendar-day-footer">
           ${shouldShowDots ? `<div class="event-dots" aria-hidden="true">${dotsHtml}</div>` : ""}

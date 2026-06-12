@@ -457,6 +457,15 @@ h3 {
   cursor: pointer;
 }
 
+.delete-button {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(209, 67, 67, 0.22);
+  background: rgba(209, 67, 67, 0.1);
+  color: var(--danger);
+  cursor: pointer;
+}
+
 .weekday-row,
 .calendar-grid {
   display: grid;
@@ -521,9 +530,11 @@ h3 {
 .calendar-day-header {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 6px;
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .calendar-day-footer {
@@ -532,6 +543,8 @@ h3 {
   justify-content: flex-start;
   width: 100%;
   min-height: 26px;
+  position: relative;
+  z-index: 1;
 }
 
 .calendar-day.has-events {
@@ -540,21 +553,6 @@ h3 {
 
 .calendar-day.has-events .day-number {
   color: var(--primary-dark);
-}
-
-.event-count-badge {
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
-  color: var(--text);
-  font-size: 0.82rem;
-  font-weight: 800;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
 }
 
 .event-dots {
@@ -666,13 +664,6 @@ h3 {
 
   .weekday-row {
     font-size: 0.82rem;
-  }
-
-  .event-count-badge {
-    min-width: 18px;
-    height: 18px;
-    padding: 0 4px;
-    font-size: 0.7rem;
   }
 
   .event-dots {
