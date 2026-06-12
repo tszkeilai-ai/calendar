@@ -68,6 +68,7 @@ async function bootstrap() {
   bindAuthEvents();
   bindManageEvents();
   bindCalendarEvents();
+  bindResponsiveEvents();
 
   const { data, error } = await state.supabase.auth.getSession();
   if (error) throw error;
@@ -228,6 +229,16 @@ function bindCalendarEvents() {
       renderCalendar();
     });
   }
+}
+
+function bindResponsiveEvents() {
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      renderCalendar();
+    }, 120);
+  });
 }
 
 async function handleSessionChange(session) {
@@ -394,6 +405,7 @@ function renderCalendar() {
   const calendarEntries = state.entries
     .filter((entry) => entry.date && !entry.isDraft)
     .sort(sortEntriesByDateTime);
+  const maxVisibleEvents = window.innerWidth <= 720 ? 2 : 3;
 
   for (let index = 0; index < 42; index += 1) {
     const cellDate = new Date(gridStart);
@@ -415,23 +427,32 @@ function renderCalendar() {
       dayCell.classList.add("is-today");
     }
 
+    const dayHeader = document.createElement("div");
+    dayHeader.className = "calendar-day-header";
+
     const number = document.createElement("span");
     number.className = "day-number";
     number.textContent = String(cellDate.getDate());
-    dayCell.appendChild(number);
+    dayHeader.appendChild(number);
+    dayCell.appendChild(dayHeader);
 
     const eventList = document.createElement("div");
     eventList.className = "event-list";
 
-    dayEntries.forEach((entry) => {
+    const visibleEntries = dayEntries.slice(0, maxVisibleEvents);
+
+    visibleEntries.forEach((entry) => {
       const chip = document.createElement("div");
       chip.className = "event-chip";
       chip.style.background = entry.color || DEFAULT_COLOR;
+      chip.style.color = getReadableTextColor(entry.color || DEFAULT_COLOR);
+      chip.title = `${formatDisplayTime(entry.time)} ${entry.category || "未分類"} ${entry.note || ""}`.trim();
 
       const header = document.createElement("div");
       header.className = "event-chip-header";
 
       const category = document.createElement("strong");
+      category.className = "event-title";
       category.textContent = entry.category || "未分類";
 
       const time = document.createElement("span");
@@ -439,12 +460,20 @@ function renderCalendar() {
       time.textContent = formatDisplayTime(entry.time);
 
       const note = document.createElement("span");
+      note.className = "event-note";
       note.textContent = entry.note || "沒有備註";
 
       header.append(category, time);
       chip.append(header, note);
       eventList.appendChild(chip);
     });
+
+    if (dayEntries.length > maxVisibleEvents) {
+      const moreIndicator = document.createElement("div");
+      moreIndicator.className = "more-events";
+      moreIndicator.textContent = `+${dayEntries.length - maxVisibleEvents} 項`;
+      eventList.appendChild(moreIndicator);
+    }
 
     dayCell.appendChild(eventList);
     calendarGrid.appendChild(dayCell);
@@ -682,6 +711,18 @@ function sortEntriesByDateTime(entryA, entryB) {
 function getTimeSortValue(timeValue) {
   if (!timeValue) return 9999;
   return Number(timeValue.replace(":", ""));
+}
+
+function getReadableTextColor(hexColor) {
+  const normalized = String(hexColor || "").replace("#", "");
+  if (normalized.length !== 6) return "#ffffff";
+
+  const red = Number.parseInt(normalized.slice(0, 2), 16);
+  const green = Number.parseInt(normalized.slice(2, 4), 16);
+  const blue = Number.parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+
+  return luminance > 0.68 ? "#162033" : "#ffffff";
 }
 
 function startOfMonth(date) {
