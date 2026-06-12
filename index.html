@@ -3,11 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>月曆記事板</title>
+  <title>月曆記事板｜資料管理</title>
   <link rel="stylesheet" href="./style.css">
 </head>
-<body>
-  <div class="app-shell">
+<body data-page="manage">
+  <section id="authScreen" class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-intro">
+        <p class="eyebrow">雲端同步版本</p>
+        <h1>登入月曆記事板</h1>
+        <p class="subtitle">用 Email 同密碼登入後，你嘅日曆資料會自動同步到唔同手機、平板同電腦。</p>
+      </div>
+
+      <div id="authMessage" class="auth-message" hidden></div>
+
+      <div class="auth-grid">
+        <form id="loginForm" class="auth-form">
+          <h2>登入</h2>
+          <label class="field">
+            <span>Email</span>
+            <input id="loginEmail" name="loginEmail" type="email" placeholder="name@example.com" required>
+          </label>
+          <label class="field">
+            <span>密碼</span>
+            <input id="loginPassword" name="loginPassword" type="password" placeholder="請輸入密碼" required>
+          </label>
+          <button class="primary-button full-width" type="submit">登入帳號</button>
+        </form>
+
+        <form id="registerForm" class="auth-form">
+          <h2>註冊</h2>
+          <label class="field">
+            <span>Email</span>
+            <input id="registerEmail" name="registerEmail" type="email" placeholder="name@example.com" required>
+          </label>
+          <label class="field">
+            <span>密碼</span>
+            <input id="registerPassword" name="registerPassword" type="password" placeholder="至少 6 個字元" minlength="6" required>
+          </label>
+          <button class="secondary-button full-width" type="submit">建立帳號</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="appScreen" class="app-shell" hidden>
     <nav class="top-nav">
       <a class="nav-link is-active" href="./index.html">資料管理</a>
       <a class="nav-link" href="./calendar.html">月曆顯示</a>
@@ -15,13 +55,20 @@
 
     <header class="hero">
       <div>
-        <p class="eyebrow">GitHub 專案版本</p>
+        <p class="eyebrow">Supabase 雲端同步</p>
         <h1>資料管理頁</h1>
-        <p class="subtitle">先用表格方式輸入、篩選同修改資料，再去月曆頁查看內容。</p>
+        <p class="subtitle">輸入、修改、刪除同日期篩選都喺呢一頁完成，資料會即時同步到雲端。</p>
       </div>
-      <div class="hero-actions">
-        <button id="addRowButton" class="primary-button" type="button">新增項目</button>
-        <button id="saveButton" class="secondary-button" type="button">儲存資料</button>
+      <div class="hero-actions hero-actions-stack">
+        <div class="account-panel">
+          <span id="userEmail" class="user-email">未登入</span>
+          <button id="logoutButton" class="secondary-button" type="button">登出</button>
+        </div>
+        <div class="action-row">
+          <button id="addRowButton" class="primary-button" type="button">新增項目</button>
+          <button id="saveButton" class="secondary-button" type="button">立即同步</button>
+        </div>
+        <p id="syncStatus" class="sync-status">準備同步</p>
       </div>
     </header>
 
@@ -30,7 +77,7 @@
         <div class="panel-header">
           <div>
             <h2>日期篩選</h2>
-            <p>可用單一日期或開始、結束日期查找，方便之後修改或刪除。</p>
+            <p>支援指定日期、開始日期、結束日期，方便之後查找同修改。</p>
           </div>
         </div>
 
@@ -57,7 +104,7 @@
         <div class="panel-header">
           <div>
             <h2>表格式輸入</h2>
-            <p id="filterSummary">可直接像 Excel 一樣逐行輸入。</p>
+            <p id="filterSummary">可直接像 Excel 一樣逐行輸入，再同步到雲端。</p>
           </div>
           <div class="panel-tools">
             <button id="sampleButton" type="button">載入示例</button>
@@ -70,6 +117,7 @@
             <thead>
               <tr>
                 <th>日期</th>
+                <th>時間</th>
                 <th>主題</th>
                 <th>備註</th>
                 <th>顏色</th>
@@ -87,6 +135,9 @@
     <tr>
       <td>
         <input class="entry-date" type="date">
+      </td>
+      <td>
+        <input class="entry-time" type="time">
       </td>
       <td>
         <select class="entry-category">
@@ -110,6 +161,7 @@
     </tr>
   </template>
 
-  <script src="./script.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./script.js"></script>
 </body>
 </html>

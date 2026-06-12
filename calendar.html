@@ -6,8 +6,48 @@
   <title>月曆記事板｜月曆顯示</title>
   <link rel="stylesheet" href="./style.css">
 </head>
-<body>
-  <div class="app-shell">
+<body data-page="calendar">
+  <section id="authScreen" class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-intro">
+        <p class="eyebrow">雲端同步版本</p>
+        <h1>登入查看月曆</h1>
+        <p class="subtitle">登入之後就可以喺唔同裝置同步查看同一個帳號嘅所有日曆資料。</p>
+      </div>
+
+      <div id="authMessage" class="auth-message" hidden></div>
+
+      <div class="auth-grid">
+        <form id="loginForm" class="auth-form">
+          <h2>登入</h2>
+          <label class="field">
+            <span>Email</span>
+            <input id="loginEmail" name="loginEmail" type="email" placeholder="name@example.com" required>
+          </label>
+          <label class="field">
+            <span>密碼</span>
+            <input id="loginPassword" name="loginPassword" type="password" placeholder="請輸入密碼" required>
+          </label>
+          <button class="primary-button full-width" type="submit">登入帳號</button>
+        </form>
+
+        <form id="registerForm" class="auth-form">
+          <h2>註冊</h2>
+          <label class="field">
+            <span>Email</span>
+            <input id="registerEmail" name="registerEmail" type="email" placeholder="name@example.com" required>
+          </label>
+          <label class="field">
+            <span>密碼</span>
+            <input id="registerPassword" name="registerPassword" type="password" placeholder="至少 6 個字元" minlength="6" required>
+          </label>
+          <button class="secondary-button full-width" type="submit">建立帳號</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="appScreen" class="app-shell" hidden>
     <nav class="top-nav">
       <a class="nav-link" href="./index.html">資料管理</a>
       <a class="nav-link is-active" href="./calendar.html">月曆顯示</a>
@@ -15,12 +55,19 @@
 
     <header class="hero">
       <div>
-        <p class="eyebrow">GitHub 專案版本</p>
+        <p class="eyebrow">Supabase 雲端同步</p>
         <h1>月曆顯示頁</h1>
-        <p class="subtitle">集中查看整個月份的記事內容，輸入同修改可返回資料管理頁進行。</p>
+        <p class="subtitle">月曆會依日期同時間排序顯示，時間由 `0000` 到 `2359` 順序排列。</p>
       </div>
-      <div class="hero-actions">
-        <a class="primary-link-button" href="./index.html">前往資料管理</a>
+      <div class="hero-actions hero-actions-stack">
+        <div class="account-panel">
+          <span id="userEmail" class="user-email">未登入</span>
+          <button id="logoutButton" class="secondary-button" type="button">登出</button>
+        </div>
+        <div class="action-row">
+          <a class="primary-link-button" href="./index.html">前往資料管理</a>
+        </div>
+        <p id="syncStatus" class="sync-status">準備同步</p>
       </div>
     </header>
 
@@ -52,6 +99,7 @@
     </main>
   </div>
 
-  <script src="./script.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="./script.js"></script>
 </body>
 </html>
