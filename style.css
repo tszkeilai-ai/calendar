@@ -736,7 +736,7 @@ td input[type="color"] {
   }
 
   .manage-table td[data-label="備註"] input,
-  .manage-table td[data-label="主題"] select,
+  .manage-table td[data-label="主題"] input,
   .manage-table td[data-label="日期"] input,
   .manage-table td[data-label="時間"] input {
     width: 100%;

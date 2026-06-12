@@ -2,7 +2,7 @@ const SUPABASE_URL = "https://ppdblmxzyuacswjfftei.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_tsCRBSYpSzq9iPW2wQCRPQ_eMIKzbjf";
 const TABLE_NAME = "calendar_events";
 const DEFAULT_COLOR = "#4f46e5";
-const DEFAULT_CATEGORY = "工作";
+const DEFAULT_CATEGORY = "";
 const PAGE_TYPE = document.body.dataset.page || "manage";
 
 const authScreen = document.querySelector("#authScreen");
@@ -390,20 +390,20 @@ function renderTable() {
     const row = rowFragment.querySelector("tr");
     const dateInput = row.querySelector(".entry-date");
     const timeInput = row.querySelector(".entry-time");
-    const categorySelect = row.querySelector(".entry-category");
+    const categoryInput = row.querySelector(".entry-category");
     const noteInput = row.querySelector(".entry-note");
     const colorInput = row.querySelector(".entry-color");
     const deleteButton = row.querySelector(".delete-row-button");
 
     dateInput.value = entry.date || "";
     timeInput.value = entry.time || "";
-    categorySelect.value = entry.category || DEFAULT_CATEGORY;
+    categoryInput.value = entry.category || "";
     noteInput.value = entry.note || "";
     colorInput.value = entry.color || DEFAULT_COLOR;
 
     dateInput.addEventListener("input", (event) => updateEntry(entry.id, "date", event.target.value));
     timeInput.addEventListener("input", (event) => updateEntry(entry.id, "time", event.target.value));
-    categorySelect.addEventListener("change", (event) => updateEntry(entry.id, "category", event.target.value));
+    categoryInput.addEventListener("input", (event) => updateEntry(entry.id, "category", event.target.value));
     noteInput.addEventListener("input", (event) => updateEntry(entry.id, "note", event.target.value));
     colorInput.addEventListener("input", (event) => updateEntry(entry.id, "color", event.target.value));
     deleteButton.addEventListener("click", async () => {
@@ -631,7 +631,7 @@ async function saveEntry(entryId) {
     user_id: state.user.id,
     event_date: entry.date,
     event_time: normalizeTimeForDb(entry.time),
-    category: entry.category || DEFAULT_CATEGORY,
+    category: normalizeCategory(entry.category) || "未分類",
     note: entry.note || "",
     color: entry.color || DEFAULT_COLOR
   };
@@ -749,11 +749,11 @@ async function handleQuickAdd() {
 
   const targetDate = getQuickAddDate();
   const time = quickTimeInput?.value || "";
-  const category = quickCategoryInput?.value || DEFAULT_CATEGORY;
+  const category = normalizeCategory(quickCategoryInput?.value || "");
   const note = quickNoteInput?.value.trim() || "";
 
-  if (!time && !note && category === DEFAULT_CATEGORY) {
-    updateSyncStatus("請至少輸入時間或備註，再新增資料。", true);
+  if (!time && !note && !category) {
+    updateSyncStatus("請至少輸入主題、時間或備註，再新增資料。", true);
     quickCategoryInput?.focus();
     return;
   }
@@ -762,7 +762,7 @@ async function handleQuickAdd() {
     user_id: state.user.id,
     event_date: targetDate,
     event_time: normalizeTimeForDb(time),
-    category,
+    category: category || "未分類",
     note,
     color: DEFAULT_COLOR
   };
@@ -790,7 +790,7 @@ async function handleQuickAdd() {
 
 function clearQuickAddForm() {
   if (quickTimeInput) quickTimeInput.value = "";
-  if (quickCategoryInput) quickCategoryInput.value = DEFAULT_CATEGORY;
+  if (quickCategoryInput) quickCategoryInput.value = "";
   if (quickNoteInput) quickNoteInput.value = "";
   quickCategoryInput?.focus();
 }
@@ -830,7 +830,7 @@ function createDraftEntry(initialValues = {}) {
     id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     date: initialValues.date || "",
     time: initialValues.time || "",
-    category: initialValues.category || DEFAULT_CATEGORY,
+    category: initialValues.category || "",
     note: initialValues.note || "",
     color: initialValues.color || DEFAULT_COLOR,
     isDraft: true
@@ -842,7 +842,7 @@ function mapDbRowToEntry(row) {
     id: row.id,
     date: row.event_date,
     time: normalizeTimeFromDb(row.event_time),
-    category: row.category || DEFAULT_CATEGORY,
+    category: row.category || "",
     note: row.note || "",
     color: row.color || DEFAULT_COLOR,
     isDraft: false
@@ -893,6 +893,10 @@ function getReadableTextColor(hexColor) {
   const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
 
   return luminance > 0.68 ? "#162033" : "#ffffff";
+}
+
+function normalizeCategory(categoryValue) {
+  return String(categoryValue || "").trim();
 }
 
 function formatDateForDisplay(dateString) {

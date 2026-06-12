@@ -88,14 +88,14 @@
           </label>
           <label class="field">
             <span>主題</span>
-            <select id="quickCategoryInput" name="quickCategoryInput">
-              <option value="生日">生日</option>
-              <option value="工作" selected>工作</option>
-              <option value="假期">假期</option>
-              <option value="日常">日常</option>
-              <option value="開餐">開餐</option>
-              <option value="娛樂">娛樂</option>
-            </select>
+            <input
+              id="quickCategoryInput"
+              name="quickCategoryInput"
+              type="text"
+              list="categorySuggestions"
+              placeholder="例如：工作、生日、聚餐、覆診"
+              autocomplete="off"
+            >
           </label>
           <label class="field quick-note-field">
             <span>備註</span>
@@ -172,14 +172,7 @@
         <input class="entry-time" type="time">
       </td>
       <td data-label="主題">
-        <select class="entry-category">
-          <option value="生日">生日</option>
-          <option value="工作">工作</option>
-          <option value="假期">假期</option>
-          <option value="日常">日常</option>
-          <option value="開餐">開餐</option>
-          <option value="娛樂">娛樂</option>
-        </select>
+        <input class="entry-category" type="text" list="categorySuggestions" placeholder="可自由輸入主題">
       </td>
       <td data-label="備註">
         <input class="entry-note" type="text" placeholder="輸入備註">
@@ -192,6 +185,15 @@
       </td>
     </tr>
   </template>
+
+  <datalist id="categorySuggestions">
+    <option value="生日"></option>
+    <option value="工作"></option>
+    <option value="假期"></option>
+    <option value="日常"></option>
+    <option value="開餐"></option>
+    <option value="娛樂"></option>
+  </datalist>
 
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="./script.js"></script>
