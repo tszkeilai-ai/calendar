@@ -16,6 +16,7 @@
 
   create table public.calendar_events (
     id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users(id) on delete cascade,
     event_date date not null,
     event_time time not null,
     title text not null,
@@ -24,8 +25,9 @@
     created_at timestamptz not null default now()
   );
 
-  建議再加上適當的 RLS 規則，確保使用者只能存取自己的資料。
-  （前端程式碼會依照登入狀態操作資料，但不再用 `user_id` 欄位做篩選。）
+  建議再加上 RLS 規則，確保使用者只能存取自己的資料。
+  注意：若你的 INSERT Policy 使用 `with check (auth.uid() = user_id)`，
+  前端新增資料時就一定要帶上 `user_id`，否則會被 RLS 擋下。
 */
 
 // ------------------------------------------------------------
@@ -95,6 +97,26 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#39;");
 }
 
+// 將 HEX 色碼轉成 RGBA（用於做淡色背景），讓顏色呈現是「真實顏色」而非文字。
+// 若輸入不是合法 HEX（例如空值或亂碼），回傳 null 交給呼叫端使用預設色。
+function hexToRgba(hex, alpha = 0.14) {
+  const normalized = String(hex || "").trim();
+  const match = normalized.match(/^#?([0-9a-fA-F]{6})$/);
+  if (!match) return null;
+  const value = match[1];
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// 確保顏色一定是 `#RRGGBB` 格式，避免資料庫存到不合法字串導致 UI 失效。
+function normalizeHexColor(hex, fallback = "#3b82f6") {
+  const normalized = String(hex || "").trim();
+  const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
+  return match ? normalized : fallback;
+}
+
 // 設定狀態訊息文字與顏色。
 function setStatus(element, message, type = "") {
   if (!element) return;
@@ -125,24 +147,32 @@ function renderEventCards(targetElement, events) {
   }
 
   targetElement.innerHTML = events
-    .map(
-      (event) => `
+    .map((event) => {
+      const color = normalizeHexColor(event.color, "#3b82f6");
+      const topicBg = hexToRgba(color, 0.14) || "rgba(59, 130, 246, 0.12)";
+
+      return `
         <li class="entry-item">
           <div class="entry-meta">
             <div class="entry-meta-left">
               <span
                 class="event-color-dot"
-                style="--dot-color: ${escapeHtml(event.color || "#3b82f6")}"
+                style="--dot-color: ${escapeHtml(color)}"
                 aria-hidden="true"
               ></span>
               <span class="entry-time">${formatTimeLabel(event.event_time)}</span>
             </div>
-            <span class="entry-topic">${escapeHtml(event.title)}</span>
+            <span
+              class="entry-topic"
+              style="background: ${escapeHtml(topicBg)}; color: ${escapeHtml(color)};"
+            >
+              ${escapeHtml(event.title)}
+            </span>
           </div>
           <p class="entry-note">${escapeHtml(event.description?.trim() || "沒有備註")}</p>
         </li>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
@@ -214,9 +244,14 @@ async function initIndexPage() {
       setStatus(listStatus, "正在讀取記事資料...");
       updateCurrentDateLabel(isoDate);
 
+      // 先取得 user.id，讓查詢/新增都能帶上 user_id 通過 RLS 的 auth.uid() 檢查
+      const user = await getCurrentUser();
+      if (!user) throw new Error("登入狀態已失效，請重新登入。");
+
       const { data, error } = await supabaseClient
         .from(EVENTS_TABLE)
-        .select("id,event_date,event_time,title,description,color")
+        .select("id,user_id,event_date,event_time,title,description,color")
+        .eq("user_id", user.id)
         .eq("event_date", isoDate)
         .order("event_time", { ascending: true });
 
@@ -225,13 +260,15 @@ async function initIndexPage() {
       renderEventCards($("#entry-list"), data || []);
       setStatus(listStatus, `已載入 ${formatDateLabel(isoDate)} 的記事資料。`, "success");
     } catch (error) {
-      renderEmptyState(
-        $("#entry-list"),
-        "暫時無法讀取資料，請確認 Supabase 資料表與 RLS 規則是否已設定完成。"
-      );
+      // 注意：資料是 0 筆時不會進到 catch（因為 Supabase 會回傳空陣列 data: []）
+      // 只有真正出錯（例如 RLS 擋住、欄位不存在）才會到這裡。
+      renderEmptyState($("#entry-list"), "目前沒有資料。");
       setStatus(
         listStatus,
-        getErrorMessage(error, "讀取資料失敗，請稍後再試。"),
+        `讀取失敗：${getErrorMessage(
+          error,
+          "暫時無法讀取資料，請確認 Supabase 資料表與 RLS 規則是否已設定完成。"
+        )}`,
         "error"
       );
     }
@@ -351,11 +388,14 @@ async function initIndexPage() {
       if (!user) throw new Error("登入狀態已失效，請重新登入。");
 
       const payload = {
+        // 你的 RLS INSERT Policy 會檢查 `auth.uid() = user_id`
+        // 因此前端新增時必須帶上 user_id（就是目前登入者的 UUID）
+        user_id: user.id,
         event_date: selectedEntryDate,
         event_time: entryTime.value,
         title: entryTitle.value.trim(),
         description: entryDescription.value.trim(),
-        color: entryColor.value,
+        color: normalizeHexColor(entryColor.value, "#3b82f6"),
       };
 
       const { error } = await supabaseClient.from(EVENTS_TABLE).insert(payload);
@@ -422,8 +462,9 @@ async function initCalendarPage() {
     try {
       setStatus(calendarStatus, "正在載入月曆資料...");
 
-      // 同樣先確認登入狀態（避免 session 過期），資料隔離依賴 Supabase RLS。
-      await getCurrentUser();
+      // 同樣先確認登入狀態（避免 session 過期），並拿到 user.id 以配合 RLS 查詢。
+      const user = await getCurrentUser();
+      if (!user) throw new Error("登入狀態已失效，請重新登入。");
       const year = baseDate.getFullYear();
       const month = baseDate.getMonth();
       const firstDate = formatDateToISO(new Date(year, month, 1));
@@ -432,6 +473,7 @@ async function initCalendarPage() {
       const { data, error } = await supabaseClient
         .from(EVENTS_TABLE)
         .select("id,event_date,event_time,title,description,color")
+        .eq("user_id", user.id)
         .gte("event_date", firstDate)
         .lte("event_date", lastDate)
         .order("event_date", { ascending: true })
