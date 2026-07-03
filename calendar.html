@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>月曆頁｜手機版月曆記事板</title>
-    <link rel="stylesheet" href="./style.css?v=6.0" />
+    <link rel="stylesheet" href="./style.css?v=7.0" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./script.js?v=6.0" defer></script>
+    <script src="./script.js?v=7.0" defer></script>
   </head>
   <body data-page="calendar">
     <main class="page-shell">
@@ -114,8 +114,10 @@
               id="modal-emoji"
               type="text"
               class="text-input"
-              placeholder="請輸入 1 個 Emoji"
-              inputmode="emoji"
+              inputmode="url"
+              enterkeyhint="done"
+              placeholder="例如 🎂"
+              required
             />
           </div>
 

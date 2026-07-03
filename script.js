@@ -94,10 +94,21 @@ function isEmojiToken(value = "") {
   return /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3|\u200D|\uFE0F)/u.test(token);
 }
 
+const FALLBACK_EMOJI_INPUT_REGEX =
+  /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
+
 function normalizeEmojiText(value = "", maxCount = 1) {
   const normalized = String(value || "").trim();
   if (!normalized || /^#([0-9a-fA-F]{6})$/.test(normalized)) return "";
   return splitGraphemes(normalized).filter(isEmojiToken).slice(0, maxCount).join("");
+}
+
+function sanitizeSingleEmojiInput(value = "") {
+  const normalizedEmoji = normalizeEmojiText(value, 1);
+  if (normalizedEmoji) return normalizedEmoji;
+
+  const matchedEmoji = String(value || "").match(FALLBACK_EMOJI_INPUT_REGEX);
+  return matchedEmoji?.length ? normalizeEmojiText(matchedEmoji[0], 1) : "";
 }
 
 function collectDayEmojiTokens(events, maxCount = 4) {
@@ -401,7 +412,7 @@ function initEventModal() {
     modalDate.value = entry?.event_date || defaultDate;
     modalTime.value = formatTimeLabel(entry?.event_time || defaultTime);
     modalTitleInput.value = entry?.title || "";
-    modalEmoji.value = normalizeEmojiText(entry?.color || "", 1);
+    modalEmoji.value = sanitizeSingleEmojiInput(entry?.color || "");
     modalDescription.value = entry?.description || "";
     setStatus(modalStatus, "");
 
@@ -433,14 +444,17 @@ function initEventModal() {
   });
 
   modalEmoji?.addEventListener("input", () => {
-    modalEmoji.value = normalizeEmojiText(modalEmoji.value, 1);
+    modalEmoji.value = sanitizeSingleEmojiInput(modalEmoji.value);
   });
 
   modalForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    if (!modalDate.value || !modalTime.value || !modalTitleInput.value.trim()) {
-      setStatus(modalStatus, "請完整填寫日期、時間與主題。", "error");
+    const sanitizedEmoji = sanitizeSingleEmojiInput(modalEmoji.value);
+    modalEmoji.value = sanitizedEmoji;
+
+    if (!modalDate.value || !modalTime.value || !modalTitleInput.value.trim() || !sanitizedEmoji) {
+      setStatus(modalStatus, "請完整填寫日期、時間、主題與 1 個 Emoji。", "error");
       return;
     }
 
@@ -449,8 +463,6 @@ function initEventModal() {
 
       const user = await getCurrentUser();
       if (!user) throw new Error("登入狀態已失效，請重新登入。");
-      const sanitizedEmoji = normalizeEmojiText(modalEmoji.value, 1);
-      modalEmoji.value = sanitizedEmoji;
 
       const payload = {
         user_id: user.id,
