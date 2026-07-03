@@ -74,7 +74,6 @@
 
           <div class="topbar-actions">
             <a class="secondary-button" href="./calendar.html">前往月曆頁</a>
-            <button type="button" class="ghost-button" id="logout-button">登出</button>
           </div>
         </header>
 
@@ -95,16 +94,17 @@
             <div class="filter-row">
               <div>
                 <p class="eyebrow">歷史資料篩選器</p>
-                <label class="field-label" for="filter-date">篩選日期</label>
+                <label class="field-label" for="filter-date">篩選日期 / 月份</label>
               </div>
               <div class="filter-controls">
                 <input id="filter-date" type="date" class="text-input" />
+                <input id="filter-month" type="month" class="text-input" />
                 <button type="button" class="ghost-button ghost-button--small" id="clear-filter-button">
                   顯示全部
                 </button>
               </div>
             </div>
-            <p class="muted-text">未選日期時，預設顯示所有歷史資料；選定日期後才會篩選顯示該日事件。</p>
+            <p class="muted-text">可選擇單日或整個月份查看歷史資料；若兩者都未選，預設顯示全部。</p>
           </section>
 
           <section class="panel quick-entry-panel" id="quick-entry-panel">
@@ -147,11 +147,23 @@
               </div>
 
               <div class="input-group">
-                <label class="field-label" for="entry-color">顏色</label>
-                <div class="color-picker-wrap">
-                  <input id="entry-color" type="color" class="color-picker" value="#3b82f6" />
-                  <span class="color-hex" id="color-hex-label">#3b82f6</span>
-                </div>
+                <label class="field-label" for="entry-emoji">主題 Emoji</label>
+                <input
+                  id="entry-emoji"
+                  type="text"
+                  class="text-input"
+                  list="emoji-suggestions"
+                  placeholder="例如 🩺✈️🎂（最多 3 個）"
+                  inputmode="text"
+                />
+                <datalist id="emoji-suggestions">
+                  <option value="🩺"></option>
+                  <option value="✈️"></option>
+                  <option value="🎂"></option>
+                  <option value="🎉"></option>
+                  <option value="🏖️"></option>
+                  <option value="📚"></option>
+                </datalist>
               </div>
 
               <div class="input-group input-group-button">

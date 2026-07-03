@@ -285,8 +285,8 @@ h3 {
 }
 
 .filter-controls {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   flex: 1;
 }
@@ -329,28 +329,6 @@ h3 {
 .input-group-button .primary-button,
 .input-group-button .ghost-button {
   width: 100%;
-}
-
-.color-picker-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.color-picker {
-  width: 56px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.color-hex {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-soft);
-  font-weight: 700;
 }
 
 .section-heading {
@@ -411,6 +389,19 @@ h3 {
   min-width: 0;
 }
 
+.entry-emoji-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .entry-time {
   font-weight: 700;
   color: var(--primary-dark);
@@ -429,15 +420,6 @@ h3 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.event-color-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: var(--dot-color, var(--primary));
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-  flex: 0 0 auto;
 }
 
 .entry-note {
@@ -529,6 +511,23 @@ h3 {
   font-size: 0.92rem;
 }
 
+.calendar-toolbar {
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.calendar-nav-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calendar-nav-grid > button {
+  width: 100%;
+}
+
 .calendar-day {
   appearance: none;
   width: 100%;
@@ -590,25 +589,11 @@ h3 {
 }
 
 .calendar-day.has-events {
-  box-shadow: inset 0 0 0 2px var(--event-color, var(--primary));
+  box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.28);
 }
 
 .calendar-day.has-events .day-number {
   color: var(--primary-dark);
-}
-
-.event-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-}
-
-.event-dots .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--dot-color, var(--primary));
 }
 
 .calendar-summary-pill {
@@ -618,13 +603,24 @@ h3 {
   min-height: 26px;
   padding: 0 10px;
   border-radius: 999px;
-  background: var(--pill-bg, var(--primary));
+  background: var(--primary);
   color: #fff;
   font-size: 0.78rem;
   font-weight: 800;
   line-height: 1;
   white-space: nowrap;
   max-width: 100%;
+}
+
+.event-emojis {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  max-width: 100%;
+  font-size: 1rem;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .calendar-title-wrap {
@@ -637,6 +633,36 @@ h3 {
 
 .detail-list .entry-item {
   background: #fbfdff;
+}
+
+.empty-day-action {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+}
+
+.empty-day-action__text {
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+
+.empty-day-action__icon {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  font-size: 1.1rem;
 }
 
 @media (max-width: 768px) {
@@ -660,8 +686,7 @@ h3 {
 
   .filter-controls {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 
   .topbar-actions {
@@ -708,13 +733,12 @@ h3 {
     font-size: 0.82rem;
   }
 
-  .event-dots {
-    gap: 4px;
+  .calendar-nav-grid {
+    gap: 8px;
   }
 
-  .event-dots .dot {
-    width: 8px;
-    height: 8px;
+  .event-emojis {
+    font-size: 0.82rem;
   }
 
   .calendar-summary-pill {
@@ -732,5 +756,9 @@ h3 {
     bottom: 12px;
     width: 42px;
     height: 42px;
+  }
+
+  .empty-day-action {
+    align-items: flex-start;
   }
 }

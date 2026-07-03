@@ -83,6 +83,18 @@ function formatDateLabel(isoDate) {
   return `${year}/${month}/${day}`;
 }
 
+function formatMonthValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function formatMonthLabel(monthValue) {
+  const [year, month] = String(monthValue || "").split("-");
+  if (!year || !month) return "全部";
+  return `${year}/${month}`;
+}
+
 // 將 `HH:mm:ss` 或 `HH:mm` 都整理成 `HH:mm`。
 function formatTimeLabel(timeValue = "") {
   return timeValue.slice(0, 5);
@@ -98,24 +110,38 @@ function escapeHtml(value = "") {
     .replaceAll("'", "&#39;");
 }
 
-// 將 HEX 色碼轉成 RGBA（用於做淡色背景），讓顏色呈現是「真實顏色」而非文字。
-// 若輸入不是合法 HEX（例如空值或亂碼），回傳 null 交給呼叫端使用預設色。
-function hexToRgba(hex, alpha = 0.14) {
-  const normalized = String(hex || "").trim();
-  const match = normalized.match(/^#?([0-9a-fA-F]{6})$/);
-  if (!match) return null;
-  const value = match[1];
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+function splitGraphemes(value = "") {
+  const normalized = String(value || "").trim();
+  if (!normalized) return [];
+
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    const segmenter = new Intl.Segmenter("zh-Hant", { granularity: "grapheme" });
+    return Array.from(segmenter.segment(normalized), (item) => item.segment).filter((item) =>
+      item.trim()
+    );
+  }
+
+  return Array.from(normalized).filter((item) => item.trim());
 }
 
-// 確保顏色一定是 `#RRGGBB` 格式，避免資料庫存到不合法字串導致 UI 失效。
-function normalizeHexColor(hex, fallback = "#3b82f6") {
-  const normalized = String(hex || "").trim();
-  const match = normalized.match(/^#([0-9a-fA-F]{6})$/);
-  return match ? normalized : fallback;
+function normalizeEmojiText(value = "", maxCount = 3) {
+  const normalized = String(value || "").trim();
+  if (!normalized || /^#([0-9a-fA-F]{6})$/.test(normalized)) return "";
+  return splitGraphemes(normalized).slice(0, maxCount).join("");
+}
+
+function collectDayEmojiText(events, maxCount = 3) {
+  const tokens = [];
+
+  events.forEach((event) => {
+    splitGraphemes(normalizeEmojiText(event.color)).forEach((emoji) => {
+      if (tokens.length < maxCount) {
+        tokens.push(emoji);
+      }
+    });
+  });
+
+  return tokens.join("");
 }
 
 // 設定狀態訊息文字與顏色。
@@ -162,6 +188,30 @@ function renderEmptyState(targetElement, message) {
   `;
 }
 
+function renderEmptyActionState(targetElement, isoDate, onAction) {
+  if (!targetElement) return;
+
+  targetElement.innerHTML = `
+    <li class="entry-item">
+      <button
+        type="button"
+        class="empty-day-action"
+        data-empty-date="${escapeHtml(isoDate)}"
+        aria-label="為 ${escapeHtml(formatDateLabel(isoDate))} 新增或修改記事"
+      >
+        <span class="empty-day-action__text">這一天目前沒有行程，點這裡新增或修改記事。</span>
+        <span class="empty-day-action__icon" aria-hidden="true">✏️</span>
+      </button>
+    </li>
+  `;
+
+  if (typeof onAction === "function") {
+    targetElement.querySelector("[data-empty-date]")?.addEventListener("click", () => {
+      onAction(isoDate);
+    });
+  }
+}
+
 // 文章列表與月曆詳情共用的記事卡片渲染函式。
 // 可透過 options 控制：
 // - showDate: 是否顯示每筆資料的日期
@@ -186,27 +236,21 @@ function renderEventCards(targetElement, events, options = {}) {
 
   targetElement.innerHTML = events
     .map((event) => {
-      const color = normalizeHexColor(event.color, "#3b82f6");
-      const topicBg = hexToRgba(color, 0.14) || "rgba(59, 130, 246, 0.12)";
+      const emojiText = normalizeEmojiText(event.color);
 
       return `
         <li class="entry-item ${quickEdit ? "entry-item--quick-edit" : ""}">
           ${showDate ? `<p class="entry-date-line">${formatDateLabel(event.event_date)}</p>` : ""}
           <div class="entry-meta">
             <div class="entry-meta-left">
-              <span
-                class="event-color-dot"
-                style="--dot-color: ${escapeHtml(color)}"
-                aria-hidden="true"
-              ></span>
+              ${
+                emojiText
+                  ? `<span class="entry-emoji-badge" aria-label="主題 Emoji">${escapeHtml(emojiText)}</span>`
+                  : ""
+              }
               <span class="entry-time">${formatTimeLabel(event.event_time)}</span>
             </div>
-            <span
-              class="entry-topic"
-              style="background: ${escapeHtml(topicBg)}; color: ${escapeHtml(color)};"
-            >
-              ${escapeHtml(event.title)}
-            </span>
+            <span class="entry-topic">${escapeHtml(event.title)}</span>
           </div>
           <p class="entry-note">${escapeHtml(event.description?.trim() || "沒有備註")}</p>
           ${
@@ -299,20 +343,21 @@ async function initIndexPage() {
   const registerTab = $("#register-tab");
   const authSubmitButton = $("#auth-submit-button");
   const authMessage = $("#auth-message");
-  const logoutButton = $("#logout-button");
   const toggleControlsButton = $("#toggle-controls-button");
   const controlsPanel = $("#controls-panel");
   const filterDateInput = $("#filter-date");
+  const filterMonthInput = $("#filter-month");
   const clearFilterButton = $("#clear-filter-button");
   const quickDateInput = $("#quick-date");
   const quickEntryForm = $("#quick-entry-form");
   const addEntryButton = $("#add-entry-button");
   const cancelEditButton = $("#cancel-edit-button");
   const listStatus = $("#list-status");
-  const colorHexLabel = $("#color-hex-label");
+  const entryEmojiInput = $("#entry-emoji");
 
   // 歷史資料篩選日期（空字串代表「不篩選，顯示全部」）
   let filterDate = "";
+  let filterMonth = "";
   let editingEntryId = null;
   let latestRenderedEntries = [];
 
@@ -320,15 +365,9 @@ async function initIndexPage() {
   // - 篩選器預設不選日期（顯示全部歷史資料）
   // - 快捷輸入區預設今天（方便快速新增）
   filterDateInput.value = "";
+  filterMonthInput.value = "";
   quickDateInput.value = selectedEntryDate;
-  updateCurrentDateLabel(filterDate);
-
-  // 顏色選擇器：同步顯示目前色碼（讓使用者知道自己選了什麼顏色）
-  function syncColorHexLabel() {
-    if (!colorHexLabel) return;
-    colorHexLabel.textContent = normalizeHexColor($("#entry-color")?.value, "#3b82f6");
-  }
-  syncColorHexLabel();
+  updateCurrentDateLabel();
 
   // 收合/展開首頁控制面板，讓手機畫面先優先顯示記事列表。
   function setControlsExpanded(expanded) {
@@ -355,8 +394,9 @@ async function initIndexPage() {
     $("#entry-time").value = "";
     $("#entry-title").value = "";
     $("#entry-description").value = "";
-    $("#entry-color").value = "#3b82f6";
-    syncColorHexLabel();
+    if (entryEmojiInput) {
+      entryEmojiInput.value = "";
+    }
   }
 
   function fillEditorForm(entry) {
@@ -368,8 +408,9 @@ async function initIndexPage() {
     $("#entry-time").value = formatTimeLabel(entry.event_time || "");
     $("#entry-title").value = entry.title || "";
     $("#entry-description").value = entry.description || "";
-    $("#entry-color").value = normalizeHexColor(entry.color, "#3b82f6");
-    syncColorHexLabel();
+    if (entryEmojiInput) {
+      entryEmojiInput.value = normalizeEmojiText(entry.color);
+    }
     updateEditorModeUI();
     setControlsExpanded(true);
   }
@@ -398,7 +439,9 @@ async function initIndexPage() {
 
     try {
       filterDate = pendingEntry.event_date || "";
+      filterMonth = "";
       filterDateInput.value = filterDate;
+      filterMonthInput.value = "";
 
       if (filterDate) {
         await loadEntriesForDate(filterDate);
@@ -491,7 +534,7 @@ async function initIndexPage() {
   async function loadEntriesForDate(isoDate) {
     try {
       setStatus(listStatus, "正在讀取記事資料...");
-      updateCurrentDateLabel(isoDate);
+      updateCurrentDateLabel();
 
       // 先取得 user.id，讓查詢/新增都能帶上 user_id 通過 RLS 的 auth.uid() 檢查
       const user = await getCurrentUser();
@@ -529,11 +572,55 @@ async function initIndexPage() {
     }
   }
 
+  async function loadEntriesForMonth(monthValue) {
+    try {
+      setStatus(listStatus, "正在讀取月份資料...");
+      updateCurrentDateLabel();
+
+      const user = await getCurrentUser();
+      if (!user) throw new Error("登入狀態已失效，請重新登入。");
+
+      const [year, month] = monthValue.split("-").map(Number);
+      const firstDate = formatDateToISO(new Date(year, month - 1, 1));
+      const lastDate = formatDateToISO(new Date(year, month, 0));
+
+      const { data, error } = await supabaseClient
+        .from(EVENTS_TABLE)
+        .select("id,user_id,event_date,event_time,title,description,color")
+        .eq("user_id", user.id)
+        .gte("event_date", firstDate)
+        .lte("event_date", lastDate)
+        .order("event_date", { ascending: true })
+        .order("event_time", { ascending: true });
+
+      if (error) throw error;
+
+      latestRenderedEntries = data || [];
+      renderEventCards($("#entry-list"), latestRenderedEntries, {
+        editable: true,
+        showDate: true,
+        onEdit: startEditing,
+        onDelete: deleteEntry,
+      });
+      setStatus(listStatus, `已載入 ${formatMonthLabel(monthValue)} 的記事資料。`, "success");
+    } catch (error) {
+      renderEmptyState($("#entry-list"), "目前沒有資料。");
+      setStatus(
+        listStatus,
+        `讀取失敗：${getErrorMessage(
+          error,
+          "暫時無法讀取資料，請確認 Supabase 資料表與 RLS 規則是否已設定完成。"
+        )}`,
+        "error"
+      );
+    }
+  }
+
   // 未選擇日期時：載入「所有」歷史資料
   async function loadAllEntries() {
     try {
       setStatus(listStatus, "正在讀取所有歷史資料...");
-      updateCurrentDateLabel("");
+      updateCurrentDateLabel();
 
       const user = await getCurrentUser();
       if (!user) throw new Error("登入狀態已失效，請重新登入。");
@@ -570,18 +657,32 @@ async function initIndexPage() {
 
   // 統一刷新列表（依據目前 filterDate 決定要載入全部或單日）
   async function refreshEntries() {
-    if (!filterDate) {
-      await loadAllEntries();
+    if (filterDate) {
+      await loadEntriesForDate(filterDate);
       return;
     }
-    await loadEntriesForDate(filterDate);
+
+    if (filterMonth) {
+      await loadEntriesForMonth(filterMonth);
+      return;
+    }
+
+    await loadAllEntries();
   }
 
   // 把當前選取日期顯示在列表右上角。
-  function updateCurrentDateLabel(isoDate) {
+  function updateCurrentDateLabel() {
     const label = $("#current-date-label");
     if (!label) return;
-    label.textContent = isoDate ? formatDateLabel(isoDate) : "全部";
+    if (filterDate) {
+      label.textContent = formatDateLabel(filterDate);
+      return;
+    }
+    if (filterMonth) {
+      label.textContent = formatMonthLabel(filterMonth);
+      return;
+    }
+    label.textContent = "全部";
   }
 
   // 處理登入或註冊送出。
@@ -641,27 +742,33 @@ async function initIndexPage() {
   loginTab.addEventListener("click", () => switchAuthMode("login"));
   registerTab.addEventListener("click", () => switchAuthMode("register"));
 
-  // 登出後回到認證畫面。
-  logoutButton.addEventListener("click", async () => {
-    await supabaseClient.auth.signOut();
-    renderEmptyState($("#entry-list"), "請先登入後再查看資料。");
-    appSection.classList.add("hidden");
-    authSection.classList.remove("hidden");
-    setStatus(authMessage, "你已登出。");
-  });
-
   // 「歷史資料篩選器」：
-  // - 未選日期（空）：顯示全部
   // - 選定日期：只顯示該日事件
+  // - 選定月份：顯示該月份所有事件
   filterDateInput.addEventListener("change", async (event) => {
     filterDate = event.target.value || "";
+    if (filterDate) {
+      filterMonth = "";
+      filterMonthInput.value = "";
+    }
+    await refreshEntries();
+  });
+
+  filterMonthInput.addEventListener("change", async (event) => {
+    filterMonth = event.target.value || "";
+    if (filterMonth) {
+      filterDate = "";
+      filterDateInput.value = "";
+    }
     await refreshEntries();
   });
 
   // 「顯示全部」：一鍵清除日期篩選
   clearFilterButton?.addEventListener("click", async () => {
     filterDate = "";
+    filterMonth = "";
     filterDateInput.value = "";
+    filterMonthInput.value = "";
     await loadAllEntries();
   });
 
@@ -677,7 +784,6 @@ async function initIndexPage() {
     const entryTime = $("#entry-time");
     const entryTitle = $("#entry-title");
     const entryDescription = $("#entry-description");
-    const entryColor = $("#entry-color");
 
     if (!selectedEntryDate) {
       setStatus(listStatus, "請先選擇日期。", "error");
@@ -705,7 +811,7 @@ async function initIndexPage() {
         event_time: entryTime.value,
         title: entryTitle.value.trim(),
         description: entryDescription.value.trim(),
-        color: normalizeHexColor(entryColor.value, "#3b82f6"),
+        color: normalizeEmojiText(entryEmojiInput?.value),
       };
 
       if (editingEntryId) {
@@ -736,8 +842,9 @@ async function initIndexPage() {
     }
   });
 
-  // 顏色選擇器：每次變更都更新右側色碼顯示
-  $("#entry-color")?.addEventListener("input", syncColorHexLabel);
+  entryEmojiInput?.addEventListener("input", () => {
+    entryEmojiInput.value = normalizeEmojiText(entryEmojiInput.value);
+  });
   toggleControlsButton?.addEventListener("click", () => {
     const willExpand = controlsPanel?.classList.contains("is-collapsed");
     setControlsExpanded(Boolean(willExpand));
@@ -777,8 +884,8 @@ async function initCalendarPage() {
   const selectedDateList = $("#selected-date-list");
   const calendarStatus = $("#calendar-status");
   const prevMonthButton = $("#prev-month-button");
+  const currentMonthButton = $("#current-month-button");
   const nextMonthButton = $("#next-month-button");
-  const logoutButton = $("#calendar-logout-button");
 
   // 月曆頁必須登入才能使用，沒有 session 就導回首頁。
   const {
@@ -857,6 +964,11 @@ async function initCalendarPage() {
     window.location.href = "./index.html";
   }
 
+  function jumpToIndexForNewEntry(isoDate) {
+    saveCrossPageEditEntry({ event_date: isoDate });
+    window.location.href = "./index.html";
+  }
+
   // 畫出月曆格子。
   function renderCalendar(baseDate) {
     const eventMap = buildEventMap();
@@ -882,12 +994,8 @@ async function initCalendarPage() {
     for (let day = 1; day <= totalDays; day += 1) {
       const isoDate = formatDateToISO(new Date(year, month, day));
       const dayEvents = eventMap[isoDate] || [];
-      const uniqueColors = Array.from(
-        new Set(dayEvents.map((item) => item.color).filter(Boolean))
-      );
-      const primaryColor = uniqueColors[0] || "#3b82f6";
-      const pillBg = hexToRgba(primaryColor, 0.92) || primaryColor;
-      const shouldShowDots = dayEvents.length >= 1 && dayEvents.length <= 3;
+      const emojiText = collectDayEmojiText(dayEvents, 3);
+      const shouldShowEmojis = Boolean(emojiText) && dayEvents.length >= 1 && dayEvents.length <= 3;
       const shouldShowPill = dayEvents.length >= 4;
       const dayButton = document.createElement("button");
 
@@ -902,24 +1010,16 @@ async function initCalendarPage() {
         dayButton.classList.add("is-selected");
       }
 
-      // 月曆智慧顯示規則：
-      // 1. 1~3 筆事件：顯示顏色小圓點
-      // 2. >=4 筆事件：隱藏圓點，改顯示膠囊數量標籤
-      // 3. 1~3 筆時完全不顯示任何數量數字，只保留圓點
-      // 4. 日期數字固定在左上，底部標記區與數字完全分離，避免相撞
-      const dotsHtml = uniqueColors
-        .slice(0, 3)
-        .map((color) => `<span class="dot" style="--dot-color: ${escapeHtml(color)}"></span>`)
-        .join("");
-
-      dayButton.style.setProperty("--event-color", primaryColor);
-      dayButton.style.setProperty("--pill-bg", pillBg);
       dayButton.innerHTML = `
         <div class="calendar-day-header">
           <span class="day-number">${day}</span>
         </div>
         <div class="calendar-day-footer">
-          ${shouldShowDots ? `<div class="event-dots" aria-hidden="true">${dotsHtml}</div>` : ""}
+          ${
+            shouldShowEmojis
+              ? `<div class="event-emojis" aria-label="當天主題 Emoji">${escapeHtml(emojiText)}</div>`
+              : ""
+          }
           ${
             shouldShowPill
               ? `<span class="calendar-summary-pill" aria-label="共有 ${dayEvents.length} 筆事件">+${dayEvents.length}</span>`
@@ -945,7 +1045,7 @@ async function initCalendarPage() {
     selectedDateTitle.textContent = `${formatDateLabel(isoDate)} 行程詳情`;
 
     if (!dayEvents.length) {
-      renderEmptyState(selectedDateList, "這一天目前沒有行程。");
+      renderEmptyActionState(selectedDateList, isoDate, jumpToIndexForNewEntry);
       return;
     }
 
@@ -973,9 +1073,11 @@ async function initCalendarPage() {
     await loadMonthEvents(calendarCurrentMonth);
   });
 
-  logoutButton.addEventListener("click", async () => {
-    await supabaseClient.auth.signOut();
-    window.location.href = "./index.html";
+  currentMonthButton?.addEventListener("click", async () => {
+    const today = new Date();
+    calendarCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    selectedCalendarDate = formatDateToISO(today);
+    await loadMonthEvents(calendarCurrentMonth);
   });
 
   await loadMonthEvents(calendarCurrentMonth);

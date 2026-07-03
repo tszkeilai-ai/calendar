@@ -19,17 +19,19 @@
 
           <div class="topbar-actions">
             <a class="secondary-button" href="./index.html">回資料管理頁</a>
-            <button type="button" class="ghost-button" id="calendar-logout-button">登出</button>
           </div>
         </header>
 
         <section class="panel calendar-toolbar">
-          <button type="button" class="ghost-button" id="prev-month-button">上個月</button>
           <div class="calendar-title-wrap">
             <p class="eyebrow">當前月份</p>
             <h2 id="calendar-month-title">載入中...</h2>
           </div>
-          <button type="button" class="ghost-button" id="next-month-button">下個月</button>
+          <div class="calendar-nav-grid">
+            <button type="button" class="ghost-button" id="prev-month-button">上個月</button>
+            <button type="button" class="secondary-button" id="current-month-button">當月</button>
+            <button type="button" class="ghost-button" id="next-month-button">下個月</button>
+          </div>
         </section>
 
         <section class="panel calendar-grid-panel">
@@ -44,7 +46,7 @@
           </div>
 
           <div id="calendar-grid" class="calendar-grid"></div>
-          <p class="muted-text calendar-hint">1 至 3 筆只顯示顏色圓點；4 筆以上只顯示數量膠囊，不再出現獨立數量圓圈。</p>
+          <p class="muted-text calendar-hint">1 至 3 筆會顯示主題 Emoji；4 筆以上只顯示數量膠囊。</p>
         </section>
 
         <section class="panel detail-panel">
