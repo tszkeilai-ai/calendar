@@ -87,10 +87,17 @@ function splitGraphemes(value = "") {
   return Array.from(normalized).filter((item) => item.trim());
 }
 
+function isEmojiToken(value = "") {
+  const token = String(value || "");
+  if (!token) return false;
+
+  return /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3|\u200D|\uFE0F)/u.test(token);
+}
+
 function normalizeEmojiText(value = "", maxCount = 4) {
   const normalized = String(value || "").trim();
   if (!normalized || /^#([0-9a-fA-F]{6})$/.test(normalized)) return "";
-  return splitGraphemes(normalized).slice(0, maxCount).join("");
+  return splitGraphemes(normalized).filter(isEmojiToken).slice(0, maxCount).join("");
 }
 
 function collectDayEmojiTokens(events, maxCount = 4) {
@@ -899,10 +906,12 @@ async function initCalendarPage() {
           ${
             emojiTokens.length
               ? `
-                <div class="event-emojis event-emojis--count-${emojiTokens.length}" aria-label="當天主題 Emoji">
-                  ${emojiTokens
-                    .map((emoji) => `<span class="event-emoji">${escapeHtml(emoji)}</span>`)
-                    .join("")}
+                <div class="event-emojis-box">
+                  <div class="event-emojis" aria-label="當天主題 Emoji">
+                    ${emojiTokens
+                      .map((emoji) => `<span class="event-emoji">${escapeHtml(emoji)}</span>`)
+                      .join("")}
+                  </div>
                 </div>
               `
               : ""
