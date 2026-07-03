@@ -550,9 +550,9 @@ h3 {
   padding: 8px;
   min-height: 84px;
   aspect-ratio: 1 / 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
   align-items: stretch;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -599,8 +599,10 @@ h3 {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  flex: 1 1 auto;
-  min-height: 38px;
+  flex: 0 0 auto;
+  min-height: 34px;
+  width: 100%;
+  padding-top: 4px;
 }
 
 .day-number {
@@ -630,41 +632,41 @@ h3 {
   font-weight: 800;
 }
 
-.event-emojis {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 2px;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 2px;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: 6px;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
 .event-emojis-box {
-  width: 34px;
-  height: 34px;
-  margin: 4px auto 0 auto;
+  width: 32px !important;
+  height: 32px !important;
+  margin: 2px auto 0 auto !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 34px;
+  flex: 0 0 32px;
 }
 
 .event-emojis-box:empty {
   display: none;
 }
 
+.event-emojis {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  grid-template-rows: repeat(2, 1fr) !important;
+  gap: 1px !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0;
+  padding: 2px !important;
+  box-sizing: border-box !important;
+}
+
 .event-emoji {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  line-height: 1;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
 }
 
 .calendar-hint {

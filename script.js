@@ -94,24 +94,17 @@ function isEmojiToken(value = "") {
   return /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3|\u200D|\uFE0F)/u.test(token);
 }
 
-function normalizeEmojiText(value = "", maxCount = 4) {
+function normalizeEmojiText(value = "", maxCount = 1) {
   const normalized = String(value || "").trim();
   if (!normalized || /^#([0-9a-fA-F]{6})$/.test(normalized)) return "";
   return splitGraphemes(normalized).filter(isEmojiToken).slice(0, maxCount).join("");
 }
 
 function collectDayEmojiTokens(events, maxCount = 4) {
-  const tokens = [];
-
-  events.forEach((event) => {
-    splitGraphemes(normalizeEmojiText(event.color, maxCount)).forEach((emoji) => {
-      if (tokens.length < maxCount) {
-        tokens.push(emoji);
-      }
-    });
-  });
-
-  return tokens;
+  return events
+    .map((event) => normalizeEmojiText(event.color, 1))
+    .filter(Boolean)
+    .slice(0, maxCount);
 }
 
 function isSameMonth(isoDate, dateObj) {
@@ -408,7 +401,7 @@ function initEventModal() {
     modalDate.value = entry?.event_date || defaultDate;
     modalTime.value = formatTimeLabel(entry?.event_time || defaultTime);
     modalTitleInput.value = entry?.title || "";
-    modalEmoji.value = normalizeEmojiText(entry?.color || "", 4);
+    modalEmoji.value = normalizeEmojiText(entry?.color || "", 1);
     modalDescription.value = entry?.description || "";
     setStatus(modalStatus, "");
 
@@ -440,7 +433,7 @@ function initEventModal() {
   });
 
   modalEmoji?.addEventListener("input", () => {
-    modalEmoji.value = normalizeEmojiText(modalEmoji.value, 4);
+    modalEmoji.value = normalizeEmojiText(modalEmoji.value, 1);
   });
 
   modalForm?.addEventListener("submit", async (event) => {
@@ -456,6 +449,8 @@ function initEventModal() {
 
       const user = await getCurrentUser();
       if (!user) throw new Error("登入狀態已失效，請重新登入。");
+      const sanitizedEmoji = normalizeEmojiText(modalEmoji.value, 1);
+      modalEmoji.value = sanitizedEmoji;
 
       const payload = {
         user_id: user.id,
@@ -463,7 +458,7 @@ function initEventModal() {
         event_time: modalTime.value,
         title: modalTitleInput.value.trim(),
         description: modalDescription.value.trim(),
-        color: normalizeEmojiText(modalEmoji.value, 4),
+        color: sanitizedEmoji,
       };
 
       let savedEntry = null;
