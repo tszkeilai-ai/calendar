@@ -72,7 +72,6 @@
           <div>
             <p class="eyebrow">資料管理頁</p>
             <h2>我的記事列表</h2>
-            <p class="muted-text">新增與修改都會用同一個彈出視窗，不再把表單堆在頁面上。</p>
           </div>
 
           <div class="topbar-actions">
@@ -80,6 +79,7 @@
             <button type="button" class="primary-button" id="open-create-modal-button">
               新增記事
             </button>
+            <button type="button" class="ghost-button" id="logout-button">登出</button>
           </div>
         </header>
 
@@ -133,9 +133,8 @@
       >
         <header class="modal-header">
           <div>
-            <p class="eyebrow">新增 / 修改記事</p>
             <h3 id="modal-title">新增記事</h3>
-            <p id="modal-subtitle" class="muted-text modal-subtitle">填寫完成後會即時更新背景列表。</p>
+            <p id="modal-subtitle" class="muted-text modal-subtitle"></p>
           </div>
           <button type="button" class="modal-close-button" id="modal-close-button" aria-label="關閉視窗">
             ×
@@ -190,8 +189,8 @@
           <p id="modal-status" class="status-message" aria-live="polite"></p>
 
           <div class="modal-actions">
-            <button type="button" class="ghost-button" id="modal-cancel-button">取消</button>
             <button type="submit" class="primary-button" id="modal-submit-button">儲存</button>
+            <button type="button" class="ghost-button" id="modal-cancel-button">取消</button>
           </div>
         </form>
       </section>

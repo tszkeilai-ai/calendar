@@ -143,7 +143,7 @@ function renderEmptyActionState(targetElement, isoDate, onAction) {
         data-empty-date="${escapeHtml(isoDate)}"
         aria-label="為 ${escapeHtml(formatDateLabel(isoDate))} 新增記事"
       >
-        <span class="empty-day-action__text">這一天目前沒有記事，點這裡直接用彈出視窗新增。</span>
+        <span class="empty-day-action__text">這一天目前沒有記事。</span>
         <span class="empty-day-action__icon" aria-hidden="true">✏️</span>
       </button>
     </li>
@@ -311,6 +311,23 @@ async function deleteEventById(entryId, userId) {
   if (error) throw error;
 }
 
+async function signOutUser({ statusElement = null, redirectTo = null } = {}) {
+  try {
+    setStatus(statusElement, "登出中...");
+
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) throw error;
+
+    setStatus(statusElement, "已登出。", "success");
+
+    if (redirectTo) {
+      window.location.href = redirectTo;
+    }
+  } catch (error) {
+    setStatus(statusElement, getErrorMessage(error, "登出失敗，請稍後再試。"), "error");
+  }
+}
+
 function initEventModal() {
   const modal = $("#event-modal");
   if (!modal) return;
@@ -361,10 +378,7 @@ function initEventModal() {
       defaultDate = formatDateToISO(new Date()),
       defaultTime = formatTimeToHM(new Date()),
       title = mode === "edit" ? "修改記事" : "新增記事",
-      subtitle =
-        mode === "edit"
-          ? "儲存後會直接關閉視窗，並即時更新背景資料。"
-          : "填寫完成後會直接關閉視窗，並即時更新背景資料。",
+      subtitle = "",
       submitLabel = mode === "edit" ? "儲存修改" : "儲存",
       refresh = null,
       statusElement = null,
@@ -379,7 +393,9 @@ function initEventModal() {
     modalState.isOpen = true;
 
     modalTitle.textContent = title;
-    modalSubtitle.textContent = subtitle;
+    if (modalSubtitle) {
+      modalSubtitle.textContent = subtitle || "";
+    }
     modalSubmitButton.textContent = submitLabel;
 
     modalDate.value = entry?.event_date || defaultDate;
@@ -515,6 +531,7 @@ async function initIndexPage() {
   const clearFilterButton = $("#clear-filter-button");
   const currentDateLabel = $("#current-date-label");
   const openCreateModalButton = $("#open-create-modal-button");
+  const logoutButton = $("#logout-button");
 
   let filterDate = "";
   let filterMonth = "";
@@ -607,7 +624,6 @@ async function initIndexPage() {
       mode: "edit",
       entry,
       title: "修改記事",
-      subtitle: "儲存後會直接關閉視窗，並即時更新目前列表。",
       submitLabel: "儲存修改",
       refresh: refreshEntries,
       statusElement: listStatus,
@@ -739,12 +755,15 @@ async function initIndexPage() {
       defaultDate: fallbackDate,
       defaultTime: formatTimeToHM(new Date()),
       title: "新增記事",
-      subtitle: "儲存後會直接關閉視窗，並即時更新目前列表。",
       submitLabel: "儲存",
       refresh: refreshEntries,
       statusElement: listStatus,
       focusReturn: openCreateModalButton,
     });
+  });
+
+  logoutButton?.addEventListener("click", async () => {
+    await signOutUser({ statusElement: listStatus });
   });
 
   supabaseClient.auth.onAuthStateChange(async () => {
@@ -771,6 +790,7 @@ async function initCalendarPage() {
   const currentMonthButton = $("#current-month-button");
   const nextMonthButton = $("#next-month-button");
   const openCreateButton = $("#calendar-open-create-button");
+  const calendarLogoutButton = $("#calendar-logout-button");
 
   const {
     data: { session },
@@ -807,7 +827,6 @@ async function initCalendarPage() {
       defaultDate: isoDate,
       defaultTime: formatTimeToHM(new Date()),
       title: `新增 ${formatDateLabel(isoDate)} 記事`,
-      subtitle: "儲存後會直接關閉視窗，並即時更新月曆與當日明細。",
       submitLabel: "儲存",
       refresh: refreshCurrentMonth,
       statusElement: calendarStatus,
@@ -823,7 +842,6 @@ async function initCalendarPage() {
       mode: "edit",
       entry,
       title: `修改 ${formatDateLabel(entry.event_date)} 記事`,
-      subtitle: "儲存後會直接關閉視窗，並即時更新月曆與當日明細。",
       submitLabel: "儲存修改",
       refresh: refreshCurrentMonth,
       statusElement: calendarStatus,
@@ -881,7 +899,7 @@ async function initCalendarPage() {
           ${
             emojiTokens.length
               ? `
-                <div class="event-emojis" aria-label="當天主題 Emoji">
+                <div class="event-emojis event-emojis--count-${emojiTokens.length}" aria-label="當天主題 Emoji">
                   ${emojiTokens
                     .map((emoji) => `<span class="event-emoji">${escapeHtml(emoji)}</span>`)
                     .join("")}
@@ -980,6 +998,10 @@ async function initCalendarPage() {
 
   openCreateButton?.addEventListener("click", () => {
     openCreateModalForDate(selectedCalendarDate || formatDateToISO(new Date()), openCreateButton);
+  });
+
+  calendarLogoutButton?.addEventListener("click", async () => {
+    await signOutUser({ statusElement: calendarStatus, redirectTo: "./index.html" });
   });
 
   await loadMonthEvents(calendarCurrentMonth);

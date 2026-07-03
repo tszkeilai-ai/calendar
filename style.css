@@ -542,6 +542,7 @@ h3 {
 }
 
 .calendar-day {
+  container-type: inline-size;
   position: relative;
   appearance: none;
   width: 100%;
@@ -596,7 +597,8 @@ h3 {
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
-  min-height: 40px;
+  min-height: 42px;
+  overflow: hidden;
 }
 
 .day-number {
@@ -630,20 +632,40 @@ h3 {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 4px;
-  align-items: end;
+  gap: 3px;
+  align-items: stretch;
+  align-content: end;
   justify-items: center;
-  min-height: 38px;
+  min-height: 40px;
+  max-height: 40px;
+  overflow: hidden;
+  padding-right: 2px;
+  font-size: clamp(0.54rem, 22cqi, 0.96rem);
 }
 
 .event-emoji {
   width: 100%;
-  min-height: 17px;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.96rem;
+  aspect-ratio: 1 / 1;
+  font-size: 1em;
   line-height: 1;
+  overflow: hidden;
+}
+
+.event-emojis--count-1 {
+  font-size: clamp(0.7rem, 25cqi, 1rem);
+}
+
+.event-emojis--count-2,
+.event-emojis--count-3 {
+  font-size: clamp(0.62rem, 22cqi, 0.94rem);
+}
+
+.event-emojis--count-4 {
+  font-size: clamp(0.5rem, 18cqi, 0.84rem);
 }
 
 .calendar-hint {
@@ -713,14 +735,17 @@ h3 {
   z-index: 1;
   width: min(100%, 540px);
   max-height: min(88vh, 760px);
+  display: flex;
+  flex-direction: column;
   overflow: auto;
-  padding: 18px;
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
   border: 1px solid rgba(215, 224, 239, 0.9);
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 28px 72px rgba(15, 23, 42, 0.22);
   backdrop-filter: blur(16px);
   animation: modalCardIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  overscroll-behavior: contain;
 }
 
 .modal-header {
@@ -732,6 +757,10 @@ h3 {
 
 .modal-subtitle {
   max-width: 360px;
+}
+
+.modal-subtitle:empty {
+  display: none;
 }
 
 .modal-close-button {
@@ -761,6 +790,12 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  position: sticky;
+  bottom: calc(-18px - env(safe-area-inset-bottom));
+  margin-top: 6px;
+  padding-top: 12px;
+  padding-bottom: calc(2px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.96) 22%);
 }
 
 @keyframes modalBackdropIn {
@@ -848,13 +883,27 @@ h3 {
   }
 
   .event-emojis {
-    gap: 2px;
-    min-height: 30px;
+    gap: 1px;
+    min-height: 28px;
+    max-height: 28px;
+    font-size: clamp(0.46rem, 2.2vw, 0.78rem);
   }
 
   .event-emoji {
-    min-height: 14px;
-    font-size: 0.8rem;
+    min-height: 0;
+  }
+
+  .event-emojis--count-1 {
+    font-size: clamp(0.56rem, 2.6vw, 0.82rem);
+  }
+
+  .event-emojis--count-2,
+  .event-emojis--count-3 {
+    font-size: clamp(0.5rem, 2.25vw, 0.74rem);
+  }
+
+  .event-emojis--count-4 {
+    font-size: clamp(0.42rem, 1.95vw, 0.66rem);
   }
 
   .calendar-day-more {
@@ -885,12 +934,14 @@ h3 {
     width: 100%;
     max-height: 92vh;
     border-radius: 26px 26px 0 0;
-    padding: 18px 16px calc(20px + env(safe-area-inset-bottom));
+    padding: 18px 16px calc(28px + env(safe-area-inset-bottom));
     animation-name: modalCardInMobile;
   }
 
   .modal-actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    bottom: calc(-28px - env(safe-area-inset-bottom));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 }
 

@@ -15,7 +15,6 @@
           <div>
             <p class="eyebrow">月曆頁</p>
             <h1>我的月曆記事</h1>
-            <p class="muted-text">點日期可快速新增，點下方原子筆可直接修改既有記事。</p>
           </div>
 
           <div class="topbar-actions">
@@ -23,6 +22,7 @@
             <button type="button" class="primary-button" id="calendar-open-create-button">
               新增今天記事
             </button>
+            <button type="button" class="ghost-button" id="calendar-logout-button">登出</button>
           </div>
         </header>
 
@@ -51,9 +51,6 @@
           </div>
 
           <div id="calendar-grid" class="calendar-grid"></div>
-          <p class="muted-text calendar-hint">
-            月曆格內會以 2 × 2 田字型最多顯示 4 個 Emoji，方便在手機上快速掃視。
-          </p>
         </section>
 
         <section class="panel detail-panel">
@@ -81,9 +78,8 @@
       >
         <header class="modal-header">
           <div>
-            <p class="eyebrow">新增 / 修改記事</p>
             <h3 id="modal-title">新增記事</h3>
-            <p id="modal-subtitle" class="muted-text modal-subtitle">儲存後月曆與明細會立即重整。</p>
+            <p id="modal-subtitle" class="muted-text modal-subtitle"></p>
           </div>
           <button type="button" class="modal-close-button" id="modal-close-button" aria-label="關閉視窗">
             ×
@@ -138,8 +134,8 @@
           <p id="modal-status" class="status-message" aria-live="polite"></p>
 
           <div class="modal-actions">
-            <button type="button" class="ghost-button" id="modal-cancel-button">取消</button>
             <button type="submit" class="primary-button" id="modal-submit-button">儲存</button>
+            <button type="button" class="ghost-button" id="modal-cancel-button">取消</button>
           </div>
         </form>
       </section>
