@@ -11,14 +11,18 @@
   <body data-page="calendar">
     <main class="page-shell">
       <section class="panel calendar-page-panel">
-        <header class="topbar">
+        <header class="topbar topbar--app">
           <div>
             <p class="eyebrow">月曆頁</p>
             <h1>我的月曆記事</h1>
+            <p class="muted-text">點日期可快速新增，點下方原子筆可直接修改既有記事。</p>
           </div>
 
           <div class="topbar-actions">
             <a class="secondary-button" href="./index.html">回資料管理頁</a>
+            <button type="button" class="primary-button" id="calendar-open-create-button">
+              新增今天記事
+            </button>
           </div>
         </header>
 
@@ -27,6 +31,7 @@
             <p class="eyebrow">當前月份</p>
             <h2 id="calendar-month-title">載入中...</h2>
           </div>
+
           <div class="calendar-nav-grid">
             <button type="button" class="ghost-button" id="prev-month-button">上個月</button>
             <button type="button" class="secondary-button" id="current-month-button">當月</button>
@@ -46,16 +51,18 @@
           </div>
 
           <div id="calendar-grid" class="calendar-grid"></div>
-          <p class="muted-text calendar-hint">1 至 3 筆會顯示主題 Emoji；4 筆以上只顯示數量膠囊。</p>
+          <p class="muted-text calendar-hint">
+            月曆格內會以 2 × 2 田字型最多顯示 4 個 Emoji，方便在手機上快速掃視。
+          </p>
         </section>
 
         <section class="panel detail-panel">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">點擊看詳情</p>
+              <p class="eyebrow">當日明細</p>
               <h3 id="selected-date-title">請先點擊日期</h3>
-              <p class="muted-text">詳情卡右下角新增原子筆按鈕，按一下會返回主頁並直接帶入修改表單。</p>
             </div>
+            <span class="date-chip" id="selected-date-chip">未選擇</span>
           </div>
 
           <p id="calendar-status" class="status-message" aria-live="polite"></p>
@@ -63,5 +70,97 @@
         </section>
       </section>
     </main>
+
+    <div class="modal hidden" id="event-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-modal-close></div>
+      <section
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">新增 / 修改記事</p>
+            <h3 id="modal-title">新增記事</h3>
+            <p id="modal-subtitle" class="muted-text modal-subtitle">儲存後月曆與明細會立即重整。</p>
+          </div>
+          <button type="button" class="modal-close-button" id="modal-close-button" aria-label="關閉視窗">
+            ×
+          </button>
+        </header>
+
+        <form id="event-form" class="modal-form">
+          <div class="input-group">
+            <label class="field-label" for="modal-date">日期</label>
+            <input id="modal-date" type="date" class="text-input" required />
+          </div>
+
+          <div class="input-group">
+            <label class="field-label" for="modal-time">時間</label>
+            <input id="modal-time" type="time" class="text-input" required />
+          </div>
+
+          <div class="input-group">
+            <label class="field-label" for="modal-title-input">主題</label>
+            <input
+              id="modal-title-input"
+              type="text"
+              class="text-input"
+              list="title-suggestions"
+              placeholder="可自由輸入，也可選擇建議主題"
+              required
+            />
+          </div>
+
+          <div class="input-group">
+            <label class="field-label" for="modal-emoji">主題 Emoji</label>
+            <input
+              id="modal-emoji"
+              type="text"
+              class="text-input"
+              list="emoji-suggestions"
+              placeholder="例如 🩺✈️🎂🎉（最多 4 個）"
+              inputmode="text"
+            />
+          </div>
+
+          <div class="input-group">
+            <label class="field-label" for="modal-description">備註</label>
+            <textarea
+              id="modal-description"
+              class="text-input note-input"
+              rows="4"
+              placeholder="補充今天的行程內容"
+            ></textarea>
+          </div>
+
+          <p id="modal-status" class="status-message" aria-live="polite"></p>
+
+          <div class="modal-actions">
+            <button type="button" class="ghost-button" id="modal-cancel-button">取消</button>
+            <button type="submit" class="primary-button" id="modal-submit-button">儲存</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <datalist id="title-suggestions">
+      <option value="針灸"></option>
+      <option value="旅行"></option>
+      <option value="假期"></option>
+      <option value="慶祝"></option>
+      <option value="生日"></option>
+    </datalist>
+
+    <datalist id="emoji-suggestions">
+      <option value="🩺"></option>
+      <option value="✈️"></option>
+      <option value="🎂"></option>
+      <option value="🎉"></option>
+      <option value="🏖️"></option>
+      <option value="📚"></option>
+      <option value="💼"></option>
+    </datalist>
   </body>
 </html>

@@ -15,7 +15,7 @@
           <p class="eyebrow">Supabase 雲端同步</p>
           <h1>手機版月曆記事板</h1>
           <p class="muted-text">
-            先登入或註冊帳號，登入成功後即可管理記事資料，並切換到月曆頁查看每天的行程內容。
+            先登入或註冊帳號，登入後即可在手機上快速管理記事，並切換到月曆頁查看每日安排。
           </p>
         </div>
 
@@ -34,155 +34,79 @@
         </div>
 
         <form id="auth-form" class="auth-form">
-          <label class="field-label" for="auth-email">電子郵件</label>
-          <input
-            id="auth-email"
-            name="email"
-            type="email"
-            class="text-input"
-            autocomplete="email"
-            placeholder="請輸入電子郵件"
-            required
-          />
+          <div class="input-group">
+            <label class="field-label" for="auth-email">電子郵件</label>
+            <input
+              id="auth-email"
+              name="email"
+              type="email"
+              class="text-input"
+              autocomplete="email"
+              placeholder="請輸入電子郵件"
+              required
+            />
+          </div>
 
-          <label class="field-label" for="auth-password">密碼</label>
-          <input
-            id="auth-password"
-            name="password"
-            type="password"
-            class="text-input"
-            autocomplete="current-password"
-            placeholder="請輸入至少 6 碼密碼"
-            minlength="6"
-            required
-          />
+          <div class="input-group">
+            <label class="field-label" for="auth-password">密碼</label>
+            <input
+              id="auth-password"
+              name="password"
+              type="password"
+              class="text-input"
+              autocomplete="current-password"
+              placeholder="請輸入至少 6 碼密碼"
+              minlength="6"
+              required
+            />
+          </div>
 
-          <button type="submit" class="primary-button" id="auth-submit-button">
-            登入
-          </button>
+          <button type="submit" class="primary-button" id="auth-submit-button">登入</button>
         </form>
 
         <p id="auth-message" class="status-message" aria-live="polite"></p>
       </section>
 
       <section class="panel app-panel hidden" id="app-section">
-        <header class="topbar">
+        <header class="topbar topbar--app">
           <div>
             <p class="eyebrow">資料管理頁</p>
-            <h2>我的記事資料</h2>
+            <h2>我的記事列表</h2>
+            <p class="muted-text">新增與修改都會用同一個彈出視窗，不再把表單堆在頁面上。</p>
           </div>
 
           <div class="topbar-actions">
             <a class="secondary-button" href="./calendar.html">前往月曆頁</a>
+            <button type="button" class="primary-button" id="open-create-modal-button">
+              新增記事
+            </button>
           </div>
         </header>
 
-        <section class="controls-toggle-row">
-          <button
-            type="button"
-            class="secondary-button controls-toggle-button"
-            id="toggle-controls-button"
-            aria-expanded="false"
-            aria-controls="controls-panel"
-          >
-            ➕ 新增 / 篩選
-          </button>
-        </section>
-
-        <section class="controls-panel is-collapsed" id="controls-panel">
-          <section class="panel filter-panel">
-            <div class="filter-row">
-              <div>
-                <p class="eyebrow">歷史資料篩選器</p>
-                <label class="field-label" for="filter-date">篩選日期 / 月份</label>
-              </div>
-              <div class="filter-controls">
-                <input id="filter-date" type="date" class="text-input" />
-                <input id="filter-month" type="month" class="text-input" />
-                <button type="button" class="ghost-button ghost-button--small" id="clear-filter-button">
-                  顯示全部
-                </button>
-              </div>
+        <section class="panel filter-panel filter-panel--compact">
+          <div class="section-heading section-heading--compact">
+            <div>
+              <p class="eyebrow">歷史資料篩選器</p>
+              <h3>快速篩選</h3>
             </div>
-            <p class="muted-text">可選擇單日或整個月份查看歷史資料；若兩者都未選，預設顯示全部。</p>
-          </section>
+            <span id="current-date-label" class="date-chip">全部</span>
+          </div>
 
-          <section class="panel quick-entry-panel" id="quick-entry-panel">
-            <div class="sticky-panel-header">
-              <div>
-                <p class="eyebrow">快捷輸入</p>
-                <h3>新增或修改記事</h3>
-                <p class="muted-text">進入修改模式後，可按右側的取消鍵直接退出，不會改動原資料。</p>
-              </div>
-            </div>
+          <div class="filter-scroller" aria-label="歷史資料篩選器">
+            <label class="compact-field">
+              <span>日期</span>
+              <input id="filter-date" type="date" class="text-input text-input--compact" />
+            </label>
 
-            <form id="quick-entry-form" class="quick-entry-form">
-              <div class="input-group">
-                <label class="field-label" for="quick-date">日期</label>
-                <input id="quick-date" type="date" class="text-input" required />
-              </div>
+            <label class="compact-field">
+              <span>月份</span>
+              <input id="filter-month" type="month" class="text-input text-input--compact" />
+            </label>
 
-              <div class="input-group">
-                <label class="field-label" for="entry-time">時間</label>
-                <input id="entry-time" type="time" class="text-input" required />
-              </div>
-
-              <div class="input-group">
-                <label class="field-label" for="entry-title">主題</label>
-                <input
-                  id="entry-title"
-                  type="text"
-                  class="text-input"
-                  list="title-suggestions"
-                  placeholder="可自由輸入，也可選擇建議主題"
-                  required
-                />
-                <datalist id="title-suggestions">
-                  <option value="針灸"></option>
-                  <option value="旅行"></option>
-                  <option value="假期"></option>
-                  <option value="慶祝"></option>
-                  <option value="生日"></option>
-                </datalist>
-              </div>
-
-              <div class="input-group">
-                <label class="field-label" for="entry-emoji">主題 Emoji</label>
-                <input
-                  id="entry-emoji"
-                  type="text"
-                  class="text-input"
-                  list="emoji-suggestions"
-                  placeholder="例如 🩺✈️🎂（最多 3 個）"
-                  inputmode="text"
-                />
-                <datalist id="emoji-suggestions">
-                  <option value="🩺"></option>
-                  <option value="✈️"></option>
-                  <option value="🎂"></option>
-                  <option value="🎉"></option>
-                  <option value="🏖️"></option>
-                  <option value="📚"></option>
-                </datalist>
-              </div>
-
-              <div class="input-group input-group-button">
-                <label class="field-label sr-only" for="add-entry-button">送出</label>
-                <button type="submit" class="primary-button" id="add-entry-button">新增記事</button>
-                <button type="button" class="ghost-button hidden" id="cancel-edit-button">取消</button>
-              </div>
-
-              <div class="input-group input-group--full">
-                <label class="field-label" for="entry-description">備註</label>
-                <textarea
-                  id="entry-description"
-                  class="text-input note-input"
-                  rows="3"
-                  placeholder="補充今天的行程內容"
-                ></textarea>
-              </div>
-            </form>
-          </section>
+            <button type="button" class="ghost-button ghost-button--small" id="clear-filter-button">
+              顯示全部
+            </button>
+          </div>
         </section>
 
         <section class="panel list-panel">
@@ -191,7 +115,6 @@
               <p class="eyebrow">即時更新</p>
               <h3>記事列表</h3>
             </div>
-            <span id="current-date-label" class="date-chip"></span>
           </div>
 
           <p id="list-status" class="status-message" aria-live="polite"></p>
@@ -199,5 +122,97 @@
         </section>
       </section>
     </main>
+
+    <div class="modal hidden" id="event-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-modal-close></div>
+      <section
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">新增 / 修改記事</p>
+            <h3 id="modal-title">新增記事</h3>
+            <p id="modal-subtitle" class="muted-text modal-subtitle">填寫完成後會即時更新背景列表。</p>
+          </div>
+          <button type="button" class="modal-close-button" id="modal-close-button" aria-label="關閉視窗">
+            ×
+          </button>
+        </header>
+
+        <form id="event-form" class="modal-form">
+          <div class="input-group">
+            <label class="field-label" for="modal-date">日期</label>
+            <input id="modal-date" type="date" class="text-input" required />
+          </div>
+
+          <div class="input-group">
+            <label class="field-label" for="modal-time">時間</label>
+            <input id="modal-time" type="time" class="text-input" required />
+          </div>
+
+          <div class="input-group">
+            <label class="field-label" for="modal-title-input">主題</label>
+            <input
+              id="modal-title-input"
+              type="text"
+              class="text-input"
+              list="title-suggestions"
+              placeholder="可自由輸入，也可選擇建議主題"
+              required
+            />
+          </div>
+
+          <div class="input-group">
+            <label class="field-label" for="modal-emoji">主題 Emoji</label>
+            <input
+              id="modal-emoji"
+              type="text"
+              class="text-input"
+              list="emoji-suggestions"
+              placeholder="例如 🩺✈️🎂🎉（最多 4 個）"
+              inputmode="text"
+            />
+          </div>
+
+          <div class="input-group">
+            <label class="field-label" for="modal-description">備註</label>
+            <textarea
+              id="modal-description"
+              class="text-input note-input"
+              rows="4"
+              placeholder="補充今天的行程內容"
+            ></textarea>
+          </div>
+
+          <p id="modal-status" class="status-message" aria-live="polite"></p>
+
+          <div class="modal-actions">
+            <button type="button" class="ghost-button" id="modal-cancel-button">取消</button>
+            <button type="submit" class="primary-button" id="modal-submit-button">儲存</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <datalist id="title-suggestions">
+      <option value="針灸"></option>
+      <option value="旅行"></option>
+      <option value="假期"></option>
+      <option value="慶祝"></option>
+      <option value="生日"></option>
+    </datalist>
+
+    <datalist id="emoji-suggestions">
+      <option value="🩺"></option>
+      <option value="✈️"></option>
+      <option value="🎂"></option>
+      <option value="🎉"></option>
+      <option value="🏖️"></option>
+      <option value="📚"></option>
+      <option value="💼"></option>
+    </datalist>
   </body>
 </html>
