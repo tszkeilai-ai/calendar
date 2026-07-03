@@ -57,6 +57,7 @@ const $ = (selector) => document.querySelector(selector);
 
 // 依照頁面 body 上的 data-page 來決定目前是哪一頁。
 const currentPage = document.body.dataset.page;
+const CROSS_PAGE_EDIT_STORAGE_KEY = "calendar-cross-page-edit";
 
 // 統一格式化錯誤訊息，避免直接把完整錯誤物件印到畫面上。
 function getErrorMessage(error, fallbackText) {
@@ -127,6 +128,30 @@ function setStatus(element, message, type = "") {
   if (type === "success") element.classList.add("is-success");
 }
 
+function saveCrossPageEditEntry(entry) {
+  if (!entry) return;
+
+  try {
+    window.sessionStorage.setItem(CROSS_PAGE_EDIT_STORAGE_KEY, JSON.stringify(entry));
+  } catch (error) {
+    console.warn("無法暫存跨頁修改資料：", error);
+  }
+}
+
+function takeCrossPageEditEntry() {
+  try {
+    const rawValue = window.sessionStorage.getItem(CROSS_PAGE_EDIT_STORAGE_KEY);
+    if (!rawValue) return null;
+
+    window.sessionStorage.removeItem(CROSS_PAGE_EDIT_STORAGE_KEY);
+    return JSON.parse(rawValue);
+  } catch (error) {
+    console.warn("無法讀取跨頁修改資料：", error);
+    window.sessionStorage.removeItem(CROSS_PAGE_EDIT_STORAGE_KEY);
+    return null;
+  }
+}
+
 // 空狀態 UI，當列表沒有資料時給使用者清楚提示。
 function renderEmptyState(targetElement, message) {
   if (!targetElement) return;
@@ -145,7 +170,14 @@ function renderEmptyState(targetElement, message) {
 // - onDelete: 點擊刪除後要執行的函式
 function renderEventCards(targetElement, events, options = {}) {
   if (!targetElement) return;
-  const { showDate = false, editable = false, onEdit = null, onDelete = null } = options;
+  const {
+    showDate = false,
+    editable = false,
+    quickEdit = false,
+    onEdit = null,
+    onDelete = null,
+    onQuickEdit = null,
+  } = options;
 
   if (!events.length) {
     renderEmptyState(targetElement, "目前沒有資料。");
@@ -158,7 +190,7 @@ function renderEventCards(targetElement, events, options = {}) {
       const topicBg = hexToRgba(color, 0.14) || "rgba(59, 130, 246, 0.12)";
 
       return `
-        <li class="entry-item">
+        <li class="entry-item ${quickEdit ? "entry-item--quick-edit" : ""}">
           ${showDate ? `<p class="entry-date-line">${formatDateLabel(event.event_date)}</p>` : ""}
           <div class="entry-meta">
             <div class="entry-meta-left">
@@ -191,6 +223,25 @@ function renderEventCards(targetElement, events, options = {}) {
               `
               : ""
           }
+          ${
+            quickEdit
+              ? `
+                <button
+                  type="button"
+                  class="entry-quick-edit-button"
+                  data-quick-edit-id="${escapeHtml(event.id)}"
+                  aria-label="修改這則記事"
+                  title="修改"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path
+                      d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58zM20.71 7.04a1.003 1.003 0 0 0 0-1.42L18.37 3.29a1.003 1.003 0 0 0-1.42 0l-1.13 1.13 3.75 3.75 1.14-1.13z"
+                    />
+                  </svg>
+                </button>
+              `
+              : ""
+          }
         </li>
       `;
     })
@@ -208,6 +259,14 @@ function renderEventCards(targetElement, events, options = {}) {
     targetElement.querySelectorAll("[data-delete-id]").forEach((button) => {
       button.addEventListener("click", () => {
         onDelete(button.dataset.deleteId);
+      });
+    });
+  }
+
+  if (quickEdit && typeof onQuickEdit === "function") {
+    targetElement.querySelectorAll("[data-quick-edit-id]").forEach((button) => {
+      button.addEventListener("click", () => {
+        onQuickEdit(button.dataset.quickEditId);
       });
     });
   }
@@ -300,6 +359,21 @@ async function initIndexPage() {
     syncColorHexLabel();
   }
 
+  function fillEditorForm(entry) {
+    if (!entry) return;
+
+    editingEntryId = entry.id || null;
+    selectedEntryDate = entry.event_date || formatDateToISO(new Date());
+    quickDateInput.value = selectedEntryDate;
+    $("#entry-time").value = formatTimeLabel(entry.event_time || "");
+    $("#entry-title").value = entry.title || "";
+    $("#entry-description").value = entry.description || "";
+    $("#entry-color").value = normalizeHexColor(entry.color, "#3b82f6");
+    syncColorHexLabel();
+    updateEditorModeUI();
+    setControlsExpanded(true);
+  }
+
   function stopEditing({ keepValues = false } = {}) {
     editingEntryId = null;
     updateEditorModeUI();
@@ -312,17 +386,39 @@ async function initIndexPage() {
     const targetEntry = latestRenderedEntries.find((entry) => entry.id === entryId);
     if (!targetEntry) return;
 
-    editingEntryId = entryId;
-    selectedEntryDate = targetEntry.event_date;
-    quickDateInput.value = targetEntry.event_date;
-    $("#entry-time").value = formatTimeLabel(targetEntry.event_time);
-    $("#entry-title").value = targetEntry.title || "";
-    $("#entry-description").value = targetEntry.description || "";
-    $("#entry-color").value = normalizeHexColor(targetEntry.color, "#3b82f6");
-    syncColorHexLabel();
-    updateEditorModeUI();
-    setControlsExpanded(true);
+    fillEditorForm(targetEntry);
     setStatus(listStatus, "已帶入舊資料，請修改後按「更新記事」，或按「取消」退出編輯。");
+  }
+
+  async function resumeCrossPageEditIfNeeded() {
+    if (appSection?.classList.contains("hidden")) return;
+
+    const pendingEntry = takeCrossPageEditEntry();
+    if (!pendingEntry) return;
+
+    try {
+      filterDate = pendingEntry.event_date || "";
+      filterDateInput.value = filterDate;
+
+      if (filterDate) {
+        await loadEntriesForDate(filterDate);
+      } else {
+        await loadAllEntries();
+      }
+
+      const matchedEntry = latestRenderedEntries.find((entry) => entry.id === pendingEntry.id);
+      fillEditorForm(matchedEntry || pendingEntry);
+      setStatus(listStatus, "已從月曆詳情帶入記事，你可以直接修改內容。", "success");
+      $("#quick-entry-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      fillEditorForm(pendingEntry);
+      setStatus(
+        listStatus,
+        getErrorMessage(error, "已帶入記事內容，但清單同步時發生問題。"),
+        "error"
+      );
+      $("#quick-entry-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   async function deleteEntry(entryId) {
@@ -655,6 +751,7 @@ async function initIndexPage() {
   // 監聽 Supabase Auth 狀態，讓登入 / 登出畫面自動切換。
   supabaseClient.auth.onAuthStateChange(async () => {
     await togglePageBySession();
+    await resumeCrossPageEditIfNeeded();
   });
 
   // 頁面初次載入時先決定顯示哪個區塊。
@@ -662,6 +759,7 @@ async function initIndexPage() {
   updateEditorModeUI();
   setControlsExpanded(false);
   await togglePageBySession();
+  await resumeCrossPageEditIfNeeded();
 }
 
 // ------------------------------------------------------------
@@ -749,6 +847,14 @@ async function initCalendarPage() {
       map[event.event_date].push(event);
       return map;
     }, {});
+  }
+
+  function jumpToIndexForEditing(entryId) {
+    const targetEntry = calendarEvents.find((entry) => entry.id === entryId);
+    if (!targetEntry) return;
+
+    saveCrossPageEditEntry(targetEntry);
+    window.location.href = "./index.html";
   }
 
   // 畫出月曆格子。
@@ -843,7 +949,10 @@ async function initCalendarPage() {
       return;
     }
 
-    renderEventCards(selectedDateList, dayEvents);
+    renderEventCards(selectedDateList, dayEvents, {
+      quickEdit: true,
+      onQuickEdit: jumpToIndexForEditing,
+    });
   }
 
   prevMonthButton.addEventListener("click", async () => {

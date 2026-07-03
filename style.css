@@ -384,6 +384,11 @@ h3 {
   background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
 }
 
+.entry-item--quick-edit {
+  position: relative;
+  padding-bottom: 68px;
+}
+
 .entry-date-line {
   margin: 0 0 10px;
   font-size: 0.86rem;
@@ -464,6 +469,43 @@ h3 {
   background: rgba(209, 67, 67, 0.1);
   color: var(--danger);
   cursor: pointer;
+}
+
+.entry-quick-edit-button {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.entry-quick-edit-button:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.32);
+  filter: brightness(1.02);
+}
+
+.entry-quick-edit-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 4px rgba(59, 130, 246, 0.18),
+    0 10px 22px rgba(37, 99, 235, 0.28);
+}
+
+.entry-quick-edit-button svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .weekday-row,
@@ -679,5 +721,16 @@ h3 {
     min-height: 20px;
     padding: 0 8px;
     font-size: 0.68rem;
+  }
+
+  .entry-item--quick-edit {
+    padding-bottom: 62px;
+  }
+
+  .entry-quick-edit-button {
+    right: 12px;
+    bottom: 12px;
+    width: 42px;
+    height: 42px;
   }
 }
