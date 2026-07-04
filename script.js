@@ -234,20 +234,15 @@ function populateEventTimeField(field, selectedValue = "") {
 }
 
 function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
-  const defaultChoices = [{ value: "", label: "不需要提醒" }];
+  const defaultChoices = [{ value: "", label: "" }];
   const normalizedTimeValue = formatTimeLabel(timeValue);
 
   if (!isoDate || !normalizedTimeValue) {
     return defaultChoices;
   }
 
-  const eventDateTime = createLocalDateTime(isoDate, `${normalizedTimeValue}:00`);
-  if (!eventDateTime || Number.isNaN(eventDateTime.getTime())) {
-    return defaultChoices;
-  }
-
-  const fifteenMinutesBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -15);
-  const oneHourBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -60);
+  const oneHourBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue.slice(0, 2)}:00:00`, -60);
+  const twoHoursBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue.slice(0, 2)}:00:00`, -120);
 
   const previousDayNine = createLocalDateTime(isoDate, "09:00:00");
   if (!previousDayNine || Number.isNaN(previousDayNine.getTime())) {
@@ -259,14 +254,13 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
 
   const dedupedChoices = new Map(
     [
-      ...defaultChoices,
-      {
-        value: fifteenMinutesBeforeText,
-        label: formatReminderOptionTimeLabel(fifteenMinutesBeforeText, isoDate, "(前 15 分鐘)"),
-      },
       {
         value: oneHourBeforeText,
         label: formatReminderOptionTimeLabel(oneHourBeforeText, isoDate, "(前 1 小時)"),
+      },
+      {
+        value: twoHoursBeforeText,
+        label: formatReminderOptionTimeLabel(twoHoursBeforeText, isoDate, "(前 2 小時)"),
       },
       {
         value: previousDayNineText,
@@ -285,7 +279,7 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
     });
   }
 
-  return Array.from(dedupedChoices.values());
+  return [...defaultChoices, ...Array.from(dedupedChoices.values())];
 }
 
 function populateReminderField(field, isoDate, timeValue, selectedValue = "") {
