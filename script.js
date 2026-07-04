@@ -624,6 +624,71 @@ function initEventModal() {
     );
   }
 
+  function handleFormSubmit(event) {
+    event.preventDefault();
+
+    const sanitizedEmoji = sanitizeSingleEmojiInput(modalEmoji.value);
+    modalEmoji.value = sanitizedEmoji;
+
+    if (!modalDate.value || !modalEventTime?.value || !modalTitleInput.value.trim() || !sanitizedEmoji) {
+      setStatus(modalStatus, "請完整填寫日期、時間、主題與 1 個 Emoji。", "error");
+      return;
+    }
+
+    (async () => {
+      try {
+        setStatus(modalStatus, modalState.mode === "edit" ? "正在儲存修改..." : "正在新增記事...");
+
+        const user = await getCurrentUser();
+        if (!user) throw new Error("登入狀態已失效，請重新登入。");
+
+        const payload = {
+          user_id: user.id,
+          event_date: modalDate.value,
+          event_time: modalEventTime.value,
+          title: modalTitleInput.value.trim(),
+          description: modalDescription.value.trim(),
+          color: sanitizedEmoji,
+          reminder_time: document.getElementById("modal-reminder-time")?.value || null,
+          bg_color: normalizeBgColor(modalBgColor?.value || "#ffffff"),
+        };
+
+        const savedEntry = await saveEventRecord({
+          mode: modalState.mode === "edit" && modalState.editingEntryId ? "edit" : "create",
+          userId: user.id,
+          entryId: modalState.editingEntryId,
+          payload,
+        });
+
+        const currentMode = modalState.mode;
+        const refresh = modalState.refresh;
+        const pageStatusElement = modalState.statusElement;
+
+        closeEventModal({ restoreFocus: false });
+
+        try {
+          if (typeof refresh === "function") {
+            await refresh(savedEntry);
+          }
+
+          setStatus(
+            pageStatusElement,
+            currentMode === "edit" ? "記事已更新，畫面已即時同步。" : "記事已新增，畫面已即時更新。",
+            "success"
+          );
+        } catch (refreshError) {
+          setStatus(
+            pageStatusElement,
+            `資料已儲存，但重整畫面失敗：${getErrorMessage(refreshError, "請手動重新整理畫面。")}`,
+            "error"
+          );
+        }
+      } catch (error) {
+        setStatus(modalStatus, getErrorMessage(error, "儲存失敗，請稍後再試。"), "error");
+      }
+    })();
+  }
+
   function resetModalForm() {
     modalForm.reset();
     modalState.mode = "create";
@@ -779,70 +844,7 @@ function initEventModal() {
     });
   });
 
-  modalForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    const sanitizedEmoji = sanitizeSingleEmojiInput(modalEmoji.value);
-    modalEmoji.value = sanitizedEmoji;
-
-    if (!modalDate.value || !modalEventTime?.value || !modalTitleInput.value.trim() || !sanitizedEmoji) {
-      setStatus(modalStatus, "請完整填寫日期、時間、主題與 1 個 Emoji。", "error");
-      return;
-    }
-
-    try {
-      setStatus(modalStatus, modalState.mode === "edit" ? "正在儲存修改..." : "正在新增記事...");
-
-      const user = await getCurrentUser();
-      if (!user) throw new Error("登入狀態已失效，請重新登入。");
-
-      const payload = {
-        user_id: user.id,
-        event_date: modalDate.value,
-        event_time: modalEventTime.value,
-        title: modalTitleInput.value.trim(),
-        description: modalDescription.value.trim(),
-        color: sanitizedEmoji,
-        reminder_time: document.getElementById("modal-reminder-time")?.value || null,
-        bg_color: normalizeBgColor(modalBgColor?.value || "#ffffff"),
-      };
-
-      let savedEntry = null;
-
-      savedEntry = await saveEventRecord({
-        mode: modalState.mode === "edit" && modalState.editingEntryId ? "edit" : "create",
-        userId: user.id,
-        entryId: modalState.editingEntryId,
-        payload,
-      });
-
-      const currentMode = modalState.mode;
-      const refresh = modalState.refresh;
-      const pageStatusElement = modalState.statusElement;
-
-      closeEventModal({ restoreFocus: false });
-
-      try {
-        if (typeof refresh === "function") {
-          await refresh(savedEntry);
-        }
-
-        setStatus(
-          pageStatusElement,
-          currentMode === "edit" ? "記事已更新，畫面已即時同步。" : "記事已新增，畫面已即時更新。",
-          "success"
-        );
-      } catch (refreshError) {
-        setStatus(
-          pageStatusElement,
-          `資料已儲存，但重整畫面失敗：${getErrorMessage(refreshError, "請手動重新整理畫面。")}`,
-          "error"
-        );
-      }
-    } catch (error) {
-      setStatus(modalStatus, getErrorMessage(error, "儲存失敗，請稍後再試。"), "error");
-    }
-  });
+  modalForm?.addEventListener("submit", handleFormSubmit);
 
   window.closeEventModal = closeEventModal;
 }
@@ -1149,7 +1151,7 @@ async function initCalendarPage() {
     await loadMonthEvents(calendarCurrentMonth);
   }
 
-  function openCreateModalForDate(isoDate, focusReturn = null) {
+  function openCreateModal(isoDate, focusReturn = null) {
     if (typeof window.openEventModal !== "function") return;
 
     window.openEventModal({
@@ -1164,7 +1166,7 @@ async function initCalendarPage() {
     });
   }
 
-  function openEditModalForEntry(entryId, focusReturn = null) {
+  function openEditModal(entryId, focusReturn = null) {
     const entry = calendarEvents.find((item) => item.id === entryId);
     if (!entry || typeof window.openEventModal !== "function") return;
 
@@ -1269,14 +1271,14 @@ async function initCalendarPage() {
 
     if (!dayEvents.length) {
       renderEmptyActionState(selectedDateList, isoDate, () => {
-        openCreateModalForDate(selectedCalendarDate);
+        openCreateModal(selectedCalendarDate);
       });
       return;
     }
 
     renderEventCards(selectedDateList, dayEvents, {
       quickEdit: true,
-      onQuickEdit: openEditModalForEntry,
+      onQuickEdit: openEditModal,
     });
   }
 
