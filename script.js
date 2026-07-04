@@ -12,6 +12,9 @@ const SUPABASE_URL = "https://ppdblmxzyuacswjfftei.supabase.co";
 const SUPABASE_ANON_KEY =
   "sb_publishable_tsCRBSYpSzq9iPW2wQCRPQ_eMIKzbjf";
 const EVENTS_TABLE = "calendar_events";
+const EVENT_SELECT_BASE = "id,user_id,event_date,event_time,title,description,color";
+const EVENT_SELECT_WITH_BG = `${EVENT_SELECT_BASE},bg_color`;
+let supportsBgColorColumn = true;
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -71,6 +74,86 @@ function formatTimeLabel(timeValue = "") {
 function normalizeBgColor(value = "") {
   const normalized = String(value || "").trim();
   return /^#([0-9a-fA-F]{6})$/.test(normalized) ? normalized : "#ffffff";
+}
+
+function normalizeEventRecord(record = {}) {
+  return {
+    ...record,
+    bg_color: normalizeBgColor(record?.bg_color),
+  };
+}
+
+function normalizeEventRecords(records = []) {
+  return (records || []).map((record) => normalizeEventRecord(record));
+}
+
+function isMissingBgColorColumnError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("bg_color") && message.includes("does not exist");
+}
+
+function getEventSelectColumns() {
+  return supportsBgColorColumn ? EVENT_SELECT_WITH_BG : EVENT_SELECT_BASE;
+}
+
+function getEventPayload(basePayload, includeBgColor = supportsBgColorColumn) {
+  if (!includeBgColor) return { ...basePayload };
+  return {
+    ...basePayload,
+    bg_color: normalizeBgColor(basePayload.bg_color),
+  };
+}
+
+async function runEventSelectQuery(buildQuery) {
+  const primaryResult = await buildQuery(getEventSelectColumns());
+
+  if (!primaryResult.error) {
+    return normalizeEventRecords(primaryResult.data || []);
+  }
+
+  if (supportsBgColorColumn && isMissingBgColorColumnError(primaryResult.error)) {
+    supportsBgColorColumn = false;
+    const fallbackResult = await buildQuery(getEventSelectColumns());
+    if (fallbackResult.error) throw fallbackResult.error;
+    return normalizeEventRecords(fallbackResult.data || []);
+  }
+
+  throw primaryResult.error;
+}
+
+async function saveEventRecord({
+  mode,
+  userId,
+  entryId = null,
+  payload,
+}) {
+  const attemptSave = async (includeBgColor) => {
+    const query =
+      mode === "edit"
+        ? supabaseClient.from(EVENTS_TABLE).update(getEventPayload(payload, includeBgColor))
+        : supabaseClient.from(EVENTS_TABLE).insert(getEventPayload(payload, includeBgColor));
+
+    if (mode === "edit") {
+      query.eq("id", entryId).eq("user_id", userId);
+    }
+
+    return query.select(includeBgColor ? EVENT_SELECT_WITH_BG : EVENT_SELECT_BASE).single();
+  };
+
+  const primaryResult = await attemptSave(supportsBgColorColumn);
+
+  if (!primaryResult.error) {
+    return normalizeEventRecord(primaryResult.data || {});
+  }
+
+  if (supportsBgColorColumn && isMissingBgColorColumnError(primaryResult.error)) {
+    supportsBgColorColumn = false;
+    const fallbackResult = await attemptSave(false);
+    if (fallbackResult.error) throw fallbackResult.error;
+    return normalizeEventRecord(fallbackResult.data || {});
+  }
+
+  throw primaryResult.error;
 }
 
 function pickDayBackgroundColor(events = []) {
@@ -289,15 +372,14 @@ async function getCurrentUser() {
 }
 
 async function fetchEventsByDate(userId, isoDate) {
-  const { data, error } = await supabaseClient
-    .from(EVENTS_TABLE)
-    .select("id,user_id,event_date,event_time,title,description,color,bg_color")
-    .eq("user_id", userId)
-    .eq("event_date", isoDate)
-    .order("event_time", { ascending: true });
-
-  if (error) throw error;
-  return data || [];
+  return runEventSelectQuery((columns) =>
+    supabaseClient
+      .from(EVENTS_TABLE)
+      .select(columns)
+      .eq("user_id", userId)
+      .eq("event_date", isoDate)
+      .order("event_time", { ascending: true })
+  );
 }
 
 async function fetchEventsByMonth(userId, monthValue) {
@@ -305,30 +387,28 @@ async function fetchEventsByMonth(userId, monthValue) {
   const firstDate = formatDateToISO(new Date(year, month - 1, 1));
   const lastDate = formatDateToISO(new Date(year, month, 0));
 
-  const { data, error } = await supabaseClient
-    .from(EVENTS_TABLE)
-    .select("id,user_id,event_date,event_time,title,description,color,bg_color")
-    .eq("user_id", userId)
-    .gte("event_date", firstDate)
-    .lte("event_date", lastDate)
-    .order("event_date", { ascending: true })
-    .order("event_time", { ascending: true });
-
-  if (error) throw error;
-  return data || [];
+  return runEventSelectQuery((columns) =>
+    supabaseClient
+      .from(EVENTS_TABLE)
+      .select(columns)
+      .eq("user_id", userId)
+      .gte("event_date", firstDate)
+      .lte("event_date", lastDate)
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true })
+  );
 }
 
 async function fetchEventsFromDate(userId, startDate) {
-  const { data, error } = await supabaseClient
-    .from(EVENTS_TABLE)
-    .select("id,user_id,event_date,event_time,title,description,color,bg_color")
-    .eq("user_id", userId)
-    .gte("event_date", startDate)
-    .order("event_date", { ascending: true })
-    .order("event_time", { ascending: true });
-
-  if (error) throw error;
-  return data || [];
+  return runEventSelectQuery((columns) =>
+    supabaseClient
+      .from(EVENTS_TABLE)
+      .select(columns)
+      .eq("user_id", userId)
+      .gte("event_date", startDate)
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true })
+  );
 }
 
 async function deleteEventById(entryId, userId) {
@@ -436,11 +516,15 @@ function initEventModal() {
     modalState.focusReturn = focusReturn;
     modalState.isOpen = true;
 
-    modalTitle.textContent = title;
+    if (modalTitle) {
+      modalTitle.textContent = title;
+    }
     if (modalSubtitle) {
       modalSubtitle.textContent = subtitle || "";
     }
-    modalSubmitButton.textContent = submitLabel;
+    if (modalSubmitButton) {
+      modalSubmitButton.textContent = submitLabel;
+    }
     syncDeleteButtonVisibility(mode);
 
     modalDate.value = entry?.event_date || defaultDate;
@@ -544,32 +628,17 @@ function initEventModal() {
         title: modalTitleInput.value.trim(),
         description: modalDescription.value.trim(),
         color: sanitizedEmoji,
-        ...(modalBgColor ? { bg_color: normalizeBgColor(modalBgColor.value) } : {}),
+        bg_color: normalizeBgColor(modalBgColor?.value || "#ffffff"),
       };
 
       let savedEntry = null;
 
-      if (modalState.mode === "edit" && modalState.editingEntryId) {
-        const { data, error } = await supabaseClient
-          .from(EVENTS_TABLE)
-          .update(payload)
-          .eq("id", modalState.editingEntryId)
-          .eq("user_id", user.id)
-          .select("id,user_id,event_date,event_time,title,description,color,bg_color")
-          .single();
-
-        if (error) throw error;
-        savedEntry = data;
-      } else {
-        const { data, error } = await supabaseClient
-          .from(EVENTS_TABLE)
-          .insert(payload)
-          .select("id,user_id,event_date,event_time,title,description,color,bg_color")
-          .single();
-
-        if (error) throw error;
-        savedEntry = data;
-      }
+      savedEntry = await saveEventRecord({
+        mode: modalState.mode === "edit" && modalState.editingEntryId ? "edit" : "create",
+        userId: user.id,
+        entryId: modalState.editingEntryId,
+        payload,
+      });
 
       const currentMode = modalState.mode;
       const refresh = modalState.refresh;
