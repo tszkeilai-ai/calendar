@@ -218,6 +218,10 @@ function populateReminderField(field, isoDate, timeValue, selectedValue = "") {
     : "";
 }
 
+function getReminderSourceDate(dateFieldValue = "") {
+  return dateFieldValue || selectedCalendarDate || "";
+}
+
 function normalizeBgColor(value = "") {
   const normalized = String(value || "").trim();
   return /^#([0-9a-fA-F]{6})$/.test(normalized) ? normalized : "#ffffff";
@@ -614,7 +618,7 @@ function initEventModal() {
   function refreshReminderOptions(selectedValue = "") {
     populateReminderField(
       modalReminderTime,
-      modalDate?.value || "",
+      getReminderSourceDate(modalDate?.value || ""),
       modalEventTime?.value || "",
       selectedValue
     );
@@ -799,7 +803,7 @@ function initEventModal() {
         title: modalTitleInput.value.trim(),
         description: modalDescription.value.trim(),
         color: sanitizedEmoji,
-        reminder_time: modalReminderTime?.value ? modalReminderTime.value : null,
+        reminder_time: document.getElementById("modal-reminder-time")?.value || null,
         bg_color: normalizeBgColor(modalBgColor?.value || "#ffffff"),
       };
 
