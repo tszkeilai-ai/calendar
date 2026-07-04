@@ -68,6 +68,16 @@ function formatTimeLabel(timeValue = "") {
   return String(timeValue || "").slice(0, 5);
 }
 
+function normalizeBgColor(value = "") {
+  const normalized = String(value || "").trim();
+  return /^#([0-9a-fA-F]{6})$/.test(normalized) ? normalized : "#ffffff";
+}
+
+function pickDayBackgroundColor(events = []) {
+  const matchedEvent = events.find((event) => normalizeBgColor(event.bg_color) !== "#ffffff");
+  return matchedEvent ? normalizeBgColor(matchedEvent.bg_color) : "";
+}
+
 function escapeHtml(value = "") {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -147,16 +157,32 @@ function renderEmptyState(targetElement, message) {
   `;
 }
 
-function renderEmptyActionState(targetElement, isoDate) {
+function renderEmptyActionState(targetElement, isoDate, onAction) {
   if (!targetElement) return;
 
   targetElement.innerHTML = `
     <li class="entry-item">
-      <p class="entry-note">
-        ${escapeHtml(formatDateLabel(isoDate))} 目前沒有記事，請點上方「新增今天記事」建立。
-      </p>
+      <div class="empty-state-pencell" style="text-align: center; padding: 24px 16px;">
+        <p style="color: var(--text-soft); margin-bottom: 12px; font-size: 0.95rem;">
+          ${escapeHtml(formatDateLabel(isoDate))} 目前沒有記事,請點鉛筆圖案「新增今天記事」建立。
+        </p>
+        <button
+          type="button"
+          class="entry-action-button edit-button"
+          id="blank-day-quick-create"
+          style="margin: 0 auto; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); border: none; font-size: 1.2rem;"
+        >
+          ✏️
+        </button>
+      </div>
     </li>
   `;
+
+  targetElement.querySelector("#blank-day-quick-create")?.addEventListener("click", () => {
+    if (typeof onAction === "function") {
+      onAction();
+    }
+  });
 }
 
 function renderEventCards(targetElement, events, options = {}) {
@@ -265,7 +291,7 @@ async function getCurrentUser() {
 async function fetchEventsByDate(userId, isoDate) {
   const { data, error } = await supabaseClient
     .from(EVENTS_TABLE)
-    .select("id,user_id,event_date,event_time,title,description,color")
+    .select("id,user_id,event_date,event_time,title,description,color,bg_color")
     .eq("user_id", userId)
     .eq("event_date", isoDate)
     .order("event_time", { ascending: true });
@@ -281,7 +307,7 @@ async function fetchEventsByMonth(userId, monthValue) {
 
   const { data, error } = await supabaseClient
     .from(EVENTS_TABLE)
-    .select("id,user_id,event_date,event_time,title,description,color")
+    .select("id,user_id,event_date,event_time,title,description,color,bg_color")
     .eq("user_id", userId)
     .gte("event_date", firstDate)
     .lte("event_date", lastDate)
@@ -295,7 +321,7 @@ async function fetchEventsByMonth(userId, monthValue) {
 async function fetchEventsFromDate(userId, startDate) {
   const { data, error } = await supabaseClient
     .from(EVENTS_TABLE)
-    .select("id,user_id,event_date,event_time,title,description,color")
+    .select("id,user_id,event_date,event_time,title,description,color,bg_color")
     .eq("user_id", userId)
     .gte("event_date", startDate)
     .order("event_date", { ascending: true })
@@ -344,6 +370,7 @@ function initEventModal() {
   const modalTitleInput = $("#modal-title-input");
   const modalEmoji = $("#modal-emoji");
   const modalDescription = $("#modal-description");
+  const modalBgColor = $("#modal-bg-color");
   const modalStatus = $("#modal-status");
   const modalSubmitButton = $("#modal-submit-button");
   const modalDeleteButton = $("#modal-delete-button");
@@ -364,6 +391,9 @@ function initEventModal() {
     modalState.focusReturn = null;
     if (modalEmoji) {
       modalEmoji.value = "";
+    }
+    if (modalBgColor) {
+      modalBgColor.value = "#ffffff";
     }
     syncDeleteButtonVisibility("create");
     setStatus(modalStatus, "");
@@ -418,6 +448,9 @@ function initEventModal() {
     modalTitleInput.value = entry?.title || "";
     modalEmoji.value = sanitizeSingleEmojiInput(entry?.color || "");
     modalDescription.value = entry?.description || "";
+    if (modalBgColor) {
+      modalBgColor.value = normalizeBgColor(entry?.bg_color || "#ffffff");
+    }
     setStatus(modalStatus, "");
 
     modal.classList.remove("hidden");
@@ -511,6 +544,7 @@ function initEventModal() {
         title: modalTitleInput.value.trim(),
         description: modalDescription.value.trim(),
         color: sanitizedEmoji,
+        ...(modalBgColor ? { bg_color: normalizeBgColor(modalBgColor.value) } : {}),
       };
 
       let savedEntry = null;
@@ -521,7 +555,7 @@ function initEventModal() {
           .update(payload)
           .eq("id", modalState.editingEntryId)
           .eq("user_id", user.id)
-          .select("id,user_id,event_date,event_time,title,description,color")
+          .select("id,user_id,event_date,event_time,title,description,color,bg_color")
           .single();
 
         if (error) throw error;
@@ -530,7 +564,7 @@ function initEventModal() {
         const { data, error } = await supabaseClient
           .from(EVENTS_TABLE)
           .insert(payload)
-          .select("id,user_id,event_date,event_time,title,description,color")
+          .select("id,user_id,event_date,event_time,title,description,color,bg_color")
           .single();
 
         if (error) throw error;
@@ -843,9 +877,6 @@ async function initCalendarPage() {
   const prevMonthButton = $("#prev-month-button");
   const currentMonthButton = $("#current-month-button");
   const nextMonthButton = $("#next-month-button");
-  const openCreateButton = $("#calendar-open-create-button");
-  const calendarLogoutButton = $("#calendar-logout-button");
-
   const {
     data: { session },
   } = await supabaseClient.auth.getSession();
@@ -937,6 +968,11 @@ async function initCalendarPage() {
         dayButton.classList.add("has-events");
       }
 
+      const dayBackgroundColor = pickDayBackgroundColor(dayEvents);
+      if (dayBackgroundColor) {
+        dayButton.style.background = dayBackgroundColor;
+      }
+
       if (isoDate === selectedCalendarDate) {
         dayButton.classList.add("is-selected");
       }
@@ -987,7 +1023,9 @@ async function initCalendarPage() {
     selectedDateChip.textContent = formatDateLabel(isoDate);
 
     if (!dayEvents.length) {
-      renderEmptyActionState(selectedDateList, isoDate);
+      renderEmptyActionState(selectedDateList, isoDate, () => {
+        openCreateModalForDate(selectedCalendarDate);
+      });
       return;
     }
 
@@ -1049,14 +1087,6 @@ async function initCalendarPage() {
     calendarCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     selectedCalendarDate = formatDateToISO(today);
     await loadMonthEvents(calendarCurrentMonth);
-  });
-
-  openCreateButton?.addEventListener("click", () => {
-    openCreateModalForDate(selectedCalendarDate || formatDateToISO(new Date()), openCreateButton);
-  });
-
-  calendarLogoutButton?.addEventListener("click", async () => {
-    await signOutUser({ statusElement: calendarStatus, redirectTo: "./index.html" });
   });
 
   await loadMonthEvents(calendarCurrentMonth);

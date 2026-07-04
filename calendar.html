@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>月曆頁｜手機版月曆記事板</title>
-    <link rel="stylesheet" href="./style.css?v=11.0" />
+    <link rel="stylesheet" href="./style.css?v=13.0" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./script.js?v=11.0" defer></script>
+    <script src="./script.js?v=13.0" defer></script>
   </head>
   <body data-page="calendar">
     <main class="page-shell">
@@ -19,10 +19,6 @@
 
           <div class="topbar-actions">
             <a class="secondary-button" href="./index.html">回資料管理頁</a>
-            <button type="button" class="primary-button" id="calendar-open-create-button">
-              新增今天記事
-            </button>
-            <button type="button" class="ghost-button" id="calendar-logout-button">登出</button>
           </div>
         </header>
 
@@ -133,6 +129,24 @@
               rows="4"
               placeholder="補充今天的行程內容"
             ></textarea>
+          </div>
+
+          <div class="input-group">
+            <label class="field-label">自訂月曆格子底色</label>
+            <div
+              class="color-picker-group"
+              style="display: flex; gap: 10px; align-items: center; margin-top: 8px;"
+            >
+              <input
+                type="color"
+                id="modal-bg-color"
+                value="#ffffff"
+                style="width: 50px; height: 36px; border: 1px solid var(--border); border-radius: 6px; padding: 0; cursor: pointer;"
+              />
+              <span style="font-size: 0.85rem; color: var(--text-soft);"
+                >點擊方塊選擇專屬顏色</span
+              >
+            </div>
           </div>
 
           <p id="modal-status" class="status-message" aria-live="polite"></p>
