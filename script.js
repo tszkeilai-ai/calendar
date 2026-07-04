@@ -234,22 +234,26 @@ function populateEventTimeField(field, selectedValue = "") {
 }
 
 function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
-  const defaultChoices = [{ value: "", label: "" }];
+  const defaultChoices = [{ value: "", label: "不需要提醒" }];
   const normalizedTimeValue = formatTimeLabel(timeValue);
 
   if (!isoDate || !normalizedTimeValue) {
     return defaultChoices;
   }
 
-  const oneHourBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue.slice(0, 2)}:00:00`, -60);
-  const twoHoursBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue.slice(0, 2)}:00:00`, -120);
-
-  const previousDayNine = createLocalDateTime(isoDate, "09:00:00");
-  if (!previousDayNine || Number.isNaN(previousDayNine.getTime())) {
+  const [hours] = normalizedTimeValue.split(":").map((value) => Number(value));
+  const baseDate = createLocalDateTime(isoDate, `${String(hours).padStart(2, "0")}:00:00`);
+  if (!baseDate || Number.isNaN(baseDate.getTime())) {
     return defaultChoices;
   }
-  previousDayNine.setDate(previousDayNine.getDate() - 1);
 
+  const oneHourBefore = new Date(baseDate.getTime() - 60 * 60 * 1000);
+  const twoHoursBefore = new Date(baseDate.getTime() - 2 * 60 * 60 * 1000);
+  const previousDayNine = new Date(baseDate.getTime() - 24 * 60 * 60 * 1000);
+  previousDayNine.setHours(9, 0, 0, 0);
+
+  const oneHourBeforeText = formatDateTimeToSQL(oneHourBefore);
+  const twoHoursBeforeText = formatDateTimeToSQL(twoHoursBefore);
   const previousDayNineText = formatDateTimeToSQL(previousDayNine);
 
   const dedupedChoices = new Map(
