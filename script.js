@@ -142,9 +142,9 @@ function getRelativeReminderDayLabel(targetDateValue, referenceDateValue) {
   const targetMidnight = createLocalDateTime(targetDateISO, "00:00:00");
   if (!referenceDate || !targetMidnight) return formatDateLabel(targetDateISO);
 
-  const diffDays = Math.round((referenceDate.getTime() - targetMidnight.getTime()) / 86400000);
-  if (diffDays === 1) return "前一天";
-  if (diffDays === -1) return "後一天";
+  const diffDays = Math.round((targetMidnight.getTime() - referenceDate.getTime()) / 86400000);
+  if (diffDays === -1) return "前一天";
+  if (diffDays === 1) return "後一天";
 
   return formatDateLabel(targetDateISO);
 }
@@ -246,27 +246,36 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
     return defaultChoices;
   }
 
-  const fifteenMinutesBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -15);
-  const oneHourBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -60);
+  const currentHour = eventDateTime.getHours();
 
+  // 1. 前一小時內的整數點鐘
+  const oneHourBeforeInteger = new Date(eventDateTime.getTime());
+  oneHourBeforeInteger.setHours(currentHour - 1, 0, 0, 0);
+  const oneHourBeforeText = formatDateTimeToSQL(oneHourBeforeInteger);
+
+  // 2. 前兩小時內的整數點鐘
+  const twoHoursBeforeInteger = new Date(eventDateTime.getTime());
+  twoHoursBeforeInteger.setHours(currentHour - 2, 0, 0, 0);
+  const twoHoursBeforeText = formatDateTimeToSQL(twoHoursBeforeInteger);
+
+  // 3. 減去一天，設定為前一天的 09:00:00 整
   const previousDayNine = createLocalDateTime(isoDate, "09:00:00");
   if (!previousDayNine || Number.isNaN(previousDayNine.getTime())) {
     return defaultChoices;
   }
   previousDayNine.setDate(previousDayNine.getDate() - 1);
-
   const previousDayNineText = formatDateTimeToSQL(previousDayNine);
 
   const dedupedChoices = new Map(
     [
       ...defaultChoices,
       {
-        value: fifteenMinutesBeforeText,
-        label: formatReminderOptionTimeLabel(fifteenMinutesBeforeText, isoDate, "(前 15 分鐘)"),
-      },
-      {
         value: oneHourBeforeText,
         label: formatReminderOptionTimeLabel(oneHourBeforeText, isoDate, "(前 1 小時)"),
+      },
+      {
+        value: twoHoursBeforeText,
+        label: formatReminderOptionTimeLabel(twoHoursBeforeText, isoDate, "(前 2 小時)"),
       },
       {
         value: previousDayNineText,
@@ -444,7 +453,7 @@ function sanitizeSingleEmojiInput(value = "") {
   const normalizedEmoji = normalizeEmojiText(value, 1);
   if (normalizedEmoji) return normalizedEmoji;
 
-  const matchedEmoji = String(value || "").match(FALLBACK_EMOJI_INPUT_REGEX);
+  const matchedEmoji = String(value || "").match(FALLBACK_EMOYL_INPUT_REGEX);
   return matchedEmoji?.length ? normalizeEmojiText(matchedEmoji[0], 1) : "";
 }
 
