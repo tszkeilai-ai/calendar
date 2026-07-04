@@ -228,12 +228,24 @@ h3 {
   resize: vertical;
 }
 
+#modal-title-input,
+#modal-emoji {
+  font-size: 1rem;
+  line-height: 1.35;
+  padding: 13px 14px;
+  height: 48px;
+}
+
+#modal-emoji,
+#modal-emoji::placeholder {
+  text-align: left;
+}
+
 .text-input--emoji-entry {
-  text-align: center;
-  font-size: 1.4rem;
-  line-height: 1.2;
-  padding-top: 11px;
-  padding-bottom: 11px;
+  font-size: 1rem;
+  line-height: 1.35;
+  padding: 13px 14px;
+  height: 48px;
 }
 
 .tab-button,

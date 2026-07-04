@@ -143,28 +143,16 @@ function renderEmptyState(targetElement, message) {
   `;
 }
 
-function renderEmptyActionState(targetElement, isoDate, onAction) {
+function renderEmptyActionState(targetElement, isoDate) {
   if (!targetElement) return;
 
   targetElement.innerHTML = `
     <li class="entry-item">
-      <button
-        type="button"
-        class="empty-day-action"
-        data-empty-date="${escapeHtml(isoDate)}"
-        aria-label="為 ${escapeHtml(formatDateLabel(isoDate))} 新增記事"
-      >
-        <span class="empty-day-action__text">這一天目前沒有記事。</span>
-        <span class="empty-day-action__icon" aria-hidden="true">✏️</span>
-      </button>
+      <p class="entry-note">
+        ${escapeHtml(formatDateLabel(isoDate))} 目前沒有記事，請點上方「新增今天記事」建立。
+      </p>
     </li>
   `;
-
-  targetElement.querySelector("[data-empty-date]")?.addEventListener("click", () => {
-    if (typeof onAction === "function") {
-      onAction(isoDate);
-    }
-  });
 }
 
 function renderEventCards(targetElement, events, options = {}) {
@@ -938,7 +926,6 @@ async function initCalendarPage() {
         selectedCalendarDate = isoDate;
         renderCalendar(baseDate);
         renderSelectedDateDetails(isoDate);
-        openCreateModalForDate(isoDate, null);
       });
 
       calendarGrid.appendChild(dayButton);
@@ -951,7 +938,7 @@ async function initCalendarPage() {
     selectedDateChip.textContent = formatDateLabel(isoDate);
 
     if (!dayEvents.length) {
-      renderEmptyActionState(selectedDateList, isoDate, () => openCreateModalForDate(isoDate));
+      renderEmptyActionState(selectedDateList, isoDate);
       return;
     }
 
