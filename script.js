@@ -157,6 +157,14 @@ function formatReminderDisplayLabel(value = null, referenceDateValue = "") {
   return `${dayLabel} ${time.slice(0, 5)}`;
 }
 
+function formatReminderOptionTimeLabel(dateTimeText, referenceDateValue, suffix = "") {
+  const { date, time } = splitReminderDateTimeValue(dateTimeText);
+  if (!date || !time) return "";
+
+  const baseLabel = date === referenceDateValue ? time.slice(0, 5) : `${getRelativeReminderDayLabel(date, referenceDateValue)} ${time.slice(0, 5)}`;
+  return suffix ? `${baseLabel} ${suffix}` : baseLabel;
+}
+
 function buildLocalDateTimeText(dateValue, timeValue = "00:00:00") {
   const normalizedDate = String(dateValue || "").trim();
   const normalizedTime = String(timeValue || "00:00:00").trim();
@@ -237,32 +245,45 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
   if (!eventDateTimeText) {
     return defaultChoices;
   }
+  const eventDateTime = createLocalDateTime(isoDate, `${normalizedTimeValue}:00`);
+  if (!eventDateTime || Number.isNaN(eventDateTime.getTime())) {
+    return defaultChoices;
+  }
 
-  const reminderCandidates = [
-    { offsetMinutes: 10, suffix: "10 分鐘前" },
-    { offsetMinutes: 30, suffix: "30 分鐘前" },
-    { offsetMinutes: 60, suffix: "1 小時前" },
-    { offsetMinutes: 1440, suffix: "1 天前" },
-  ];
+  const nextWholeHour = new Date(eventDateTime);
+  nextWholeHour.setMinutes(0, 0, 0);
+  nextWholeHour.setHours(nextWholeHour.getHours() + 1);
 
-  const dedupedChoices = new Map(defaultChoices.map((choice) => [choice.value, choice]));
+  const secondWholeHour = new Date(nextWholeHour);
+  secondWholeHour.setHours(secondWholeHour.getHours() + 1);
 
-  reminderCandidates.forEach(({ offsetMinutes, suffix }) => {
-    const reminderText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -offsetMinutes);
-    if (!reminderText) {
-      return;
-    }
+  const nextDayNine = createLocalDateTime(isoDate, "09:00:00");
+  if (!nextDayNine || Number.isNaN(nextDayNine.getTime())) {
+    return defaultChoices;
+  }
+  nextDayNine.setDate(nextDayNine.getDate() + 1);
 
-    const reminderParts = splitReminderDateTimeValue(reminderText);
-    const eventMinuteKey = getMinuteKeyFromDateTimeText(eventDateTimeText);
-    if (!reminderParts.minuteKey || reminderParts.minuteKey >= eventMinuteKey) return;
+  const firstPatrolText = formatDateTimeToSQL(nextWholeHour);
+  const secondPatrolText = formatDateTimeToSQL(secondWholeHour);
+  const nextDayNineText = formatDateTimeToSQL(nextDayNine);
 
-    const label = `${getRelativeReminderDayLabel(reminderParts.date, isoDate)} ${reminderParts.time.slice(
-      0,
-      5
-    )}（${suffix}）`;
-    dedupedChoices.set(reminderText, { value: reminderText, label });
-  });
+  const dedupedChoices = new Map(
+    [
+      ...defaultChoices,
+      {
+        value: firstPatrolText,
+        label: formatReminderOptionTimeLabel(firstPatrolText, isoDate, "(一小時內)"),
+      },
+      {
+        value: secondPatrolText,
+        label: formatReminderOptionTimeLabel(secondPatrolText, isoDate),
+      },
+      {
+        value: nextDayNineText,
+        label: "第二天 09:00",
+      },
+    ].map((choice) => [choice.value, choice])
+  );
 
   const normalizedSelectedValue = normalizeReminderDateTimeValue(selectedValue);
   if (normalizedSelectedValue && !dedupedChoices.has(normalizedSelectedValue)) {
