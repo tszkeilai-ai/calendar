@@ -111,20 +111,30 @@ function normalizeReminderDateTimeValue(value = null) {
   return null;
 }
 
-function parseReminderDateTime(value = null) {
+function splitReminderDateTimeValue(value = null) {
   const normalizedValue = normalizeReminderDateTimeValue(value);
-  if (!normalizedValue) return null;
+  if (!normalizedValue) {
+    return { raw: "", date: "", time: "", minuteKey: "" };
+  }
 
-  const parsedDate = new Date(normalizedValue.replace(" ", "T"));
-  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+  const [datePart = "", timePart = ""] = normalizedValue.split(" ");
+  const normalizedTime = String(timePart || "").slice(0, 8);
+  const minuteTime = normalizedTime.slice(0, 5);
+
+  return {
+    raw: normalizedValue,
+    date: datePart,
+    time: normalizedTime,
+    minuteKey: datePart && minuteTime ? `${datePart} ${minuteTime}` : "",
+  };
 }
 
-function getRelativeReminderDayLabel(targetDate, referenceDateValue) {
-  if (!(targetDate instanceof Date) || Number.isNaN(targetDate.getTime())) {
+function getRelativeReminderDayLabel(targetDateValue, referenceDateValue) {
+  const targetDateISO = splitReminderDateTimeValue(`${targetDateValue} 00:00:00`).date || targetDateValue;
+  if (!targetDateISO) {
     return "";
   }
 
-  const targetDateISO = formatDateToISO(targetDate);
   if (!referenceDateValue) return formatDateLabel(targetDateISO);
   if (targetDateISO === referenceDateValue) return "當天";
 
@@ -140,11 +150,40 @@ function getRelativeReminderDayLabel(targetDate, referenceDateValue) {
 }
 
 function formatReminderDisplayLabel(value = null, referenceDateValue = "") {
-  const parsedDate = parseReminderDateTime(value);
-  if (!parsedDate) return "";
+  const { date, time } = splitReminderDateTimeValue(value);
+  if (!date || !time) return "";
 
-  const dayLabel = getRelativeReminderDayLabel(parsedDate, referenceDateValue);
-  return `${dayLabel} ${formatTimeToHM(parsedDate)}`;
+  const dayLabel = getRelativeReminderDayLabel(date, referenceDateValue);
+  return `${dayLabel} ${time.slice(0, 5)}`;
+}
+
+function buildLocalDateTimeText(dateValue, timeValue = "00:00:00") {
+  const normalizedDate = String(dateValue || "").trim();
+  const normalizedTime = String(timeValue || "00:00:00").trim();
+  const timeParts = normalizedTime.split(":");
+  const hours = String(timeParts[0] || "00").padStart(2, "0");
+  const minutes = String(timeParts[1] || "00").padStart(2, "0");
+  const seconds = String(timeParts[2] || "00").padStart(2, "0");
+
+  if (!normalizedDate) return "";
+  return `${normalizedDate} ${hours}:${minutes}:${seconds}`;
+}
+
+function shiftLocalDateTimeText(dateValue, timeValue, offsetMinutes = 0) {
+  const baseDate = createLocalDateTime(dateValue, timeValue);
+  if (!baseDate || Number.isNaN(baseDate.getTime())) return "";
+
+  const shiftedDate = new Date(baseDate.getTime() + offsetMinutes * 60000);
+  return formatDateTimeToSQL(shiftedDate);
+}
+
+function getCurrentLocalDateTimeText() {
+  const now = new Date();
+  return buildLocalDateTimeText(formatDateToISO(now), `${formatTimeToHM(now)}:${String(now.getSeconds()).padStart(2, "0")}`);
+}
+
+function getMinuteKeyFromDateTimeText(value = null) {
+  return splitReminderDateTimeValue(value).minuteKey;
 }
 
 function buildEventTimeChoices(selectedValue = "") {
@@ -194,8 +233,8 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
     return defaultChoices;
   }
 
-  const eventDateTime = createLocalDateTime(isoDate, `${normalizedTimeValue}:00`);
-  if (!eventDateTime || Number.isNaN(eventDateTime.getTime())) {
+  const eventDateTimeText = buildLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`);
+  if (!eventDateTimeText) {
     return defaultChoices;
   }
 
@@ -209,16 +248,20 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
   const dedupedChoices = new Map(defaultChoices.map((choice) => [choice.value, choice]));
 
   reminderCandidates.forEach(({ offsetMinutes, suffix }) => {
-    const reminderDate = new Date(eventDateTime.getTime() - offsetMinutes * 60000);
-    if (Number.isNaN(reminderDate.getTime()) || reminderDate.getTime() >= eventDateTime.getTime()) {
+    const reminderText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -offsetMinutes);
+    if (!reminderText) {
       return;
     }
 
-    const value = formatDateTimeToSQL(reminderDate);
-    const label = `${getRelativeReminderDayLabel(reminderDate, isoDate)} ${formatTimeToHM(
-      reminderDate
+    const reminderParts = splitReminderDateTimeValue(reminderText);
+    const eventMinuteKey = getMinuteKeyFromDateTimeText(eventDateTimeText);
+    if (!reminderParts.minuteKey || reminderParts.minuteKey >= eventMinuteKey) return;
+
+    const label = `${getRelativeReminderDayLabel(reminderParts.date, isoDate)} ${reminderParts.time.slice(
+      0,
+      5
     )}（${suffix}）`;
-    dedupedChoices.set(value, { value, label });
+    dedupedChoices.set(reminderText, { value: reminderText, label });
   });
 
   const normalizedSelectedValue = normalizeReminderDateTimeValue(selectedValue);
@@ -551,8 +594,7 @@ function renderEventCards(targetElement, events, options = {}) {
   }
 }
 
-const REMINDER_CHECK_INTERVAL = 30000;
-const REMINDER_GRACE_PERIOD = 5 * 60 * 1000;
+const REMINDER_CHECK_INTERVAL = 15000;
 const reminderToastKeys = new Set();
 let reminderCheckTimer = null;
 
@@ -655,14 +697,14 @@ function startReminderWatch(events = []) {
   if (!reminderEvents.length) return;
 
   const checkReminders = () => {
-    const now = Date.now();
+    const currentMinuteKey = getMinuteKeyFromDateTimeText(getCurrentLocalDateTimeText());
+    if (!currentMinuteKey) return;
 
     reminderEvents.forEach((event) => {
-      const reminderDate = parseReminderDateTime(event.reminder_time);
-      if (!reminderDate) return;
+      const reminderMinuteKey = getMinuteKeyFromDateTimeText(event.reminder_time);
+      if (!reminderMinuteKey) return;
 
-      const reminderTime = reminderDate.getTime();
-      if (reminderTime <= now && now - reminderTime <= REMINDER_GRACE_PERIOD) {
+      if (reminderMinuteKey === currentMinuteKey) {
         triggerReminder(event);
       }
     });
