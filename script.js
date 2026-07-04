@@ -142,9 +142,9 @@ function getRelativeReminderDayLabel(targetDateValue, referenceDateValue) {
   const targetMidnight = createLocalDateTime(targetDateISO, "00:00:00");
   if (!referenceDate || !targetMidnight) return formatDateLabel(targetDateISO);
 
-  const diffDays = Math.round((targetMidnight.getTime() - referenceDate.getTime()) / 86400000);
-  if (diffDays === -1) return "前一天";
-  if (diffDays === 1) return "後一天";
+  const diffDays = Math.round((referenceDate.getTime() - targetMidnight.getTime()) / 86400000);
+  if (diffDays === 1) return "前一天";
+  if (diffDays === -1) return "後一天";
 
   return formatDateLabel(targetDateISO);
 }
