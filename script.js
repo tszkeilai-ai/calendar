@@ -38,6 +38,10 @@ function formatDateToISO(date) {
   return `${year}-${month}-${day}`;
 }
 
+function getTodayISO() {
+  return formatDateToISO(new Date());
+}
+
 function formatTimeToHM(date) {
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
@@ -288,12 +292,13 @@ async function fetchEventsByMonth(userId, monthValue) {
   return data || [];
 }
 
-async function fetchAllEvents(userId) {
+async function fetchEventsFromDate(userId, startDate) {
   const { data, error } = await supabaseClient
     .from(EVENTS_TABLE)
     .select("id,user_id,event_date,event_time,title,description,color")
     .eq("user_id", userId)
-    .order("event_date", { ascending: false })
+    .gte("event_date", startDate)
+    .order("event_date", { ascending: true })
     .order("event_time", { ascending: true });
 
   if (error) throw error;
@@ -341,8 +346,14 @@ function initEventModal() {
   const modalDescription = $("#modal-description");
   const modalStatus = $("#modal-status");
   const modalSubmitButton = $("#modal-submit-button");
+  const modalDeleteButton = $("#modal-delete-button");
   const closeButton = $("#modal-close-button");
   const cancelButton = $("#modal-cancel-button");
+
+  function syncDeleteButtonVisibility(mode = "create") {
+    if (!modalDeleteButton) return;
+    modalDeleteButton.style.display = mode === "edit" ? "block" : "none";
+  }
 
   function resetModalForm() {
     modalForm.reset();
@@ -354,6 +365,7 @@ function initEventModal() {
     if (modalEmoji) {
       modalEmoji.value = "";
     }
+    syncDeleteButtonVisibility("create");
     setStatus(modalStatus, "");
   }
 
@@ -399,6 +411,7 @@ function initEventModal() {
       modalSubtitle.textContent = subtitle || "";
     }
     modalSubmitButton.textContent = submitLabel;
+    syncDeleteButtonVisibility(mode);
 
     modalDate.value = entry?.event_date || defaultDate;
     modalTime.value = formatTimeLabel(entry?.event_time || defaultTime);
@@ -426,6 +439,42 @@ function initEventModal() {
 
   cancelButton?.addEventListener("click", () => {
     closeEventModal();
+  });
+
+  modalDeleteButton?.addEventListener("click", async () => {
+    if (modalState.mode !== "edit" || !modalState.editingEntryId) return;
+
+    const shouldDelete = window.confirm("確定要刪除此筆記事嗎？");
+    if (!shouldDelete) return;
+
+    try {
+      setStatus(modalStatus, "正在刪除記事...");
+
+      const user = await getCurrentUser();
+      if (!user) throw new Error("登入狀態已失效，請重新登入。");
+
+      const refresh = modalState.refresh;
+      const pageStatusElement = modalState.statusElement;
+
+      await deleteEventById(modalState.editingEntryId, user.id);
+      closeEventModal({ restoreFocus: false });
+
+      try {
+        if (typeof refresh === "function") {
+          await refresh();
+        }
+
+        setStatus(pageStatusElement, "記事已刪除，畫面已即時更新。", "success");
+      } catch (refreshError) {
+        setStatus(
+          pageStatusElement,
+          `記事已刪除，但重整畫面失敗：${getErrorMessage(refreshError, "請手動重新整理畫面。")}`,
+          "error"
+        );
+      }
+    } catch (error) {
+      setStatus(modalStatus, getErrorMessage(error, "刪除失敗，請稍後再試。"), "error");
+    }
   });
 
   document.addEventListener("keydown", (event) => {
@@ -542,6 +591,12 @@ async function initIndexPage() {
   let filterMonth = "";
   let latestRenderedEntries = [];
 
+  function getCurrentFilterStartDate() {
+    if (filterDate) return filterDate;
+    if (filterMonth) return `${filterMonth}-01`;
+    return getTodayISO();
+  }
+
   function switchAuthMode(mode) {
     authMode = mode;
     loginTab.classList.toggle("is-active", mode === "login");
@@ -556,16 +611,16 @@ async function initIndexPage() {
 
   function updateCurrentDateLabel() {
     if (filterDate) {
-      currentDateLabel.textContent = formatDateLabel(filterDate);
+      currentDateLabel.textContent = `${formatDateLabel(filterDate)} 起`;
       return;
     }
 
     if (filterMonth) {
-      currentDateLabel.textContent = formatMonthLabel(filterMonth);
+      currentDateLabel.textContent = `${formatDateLabel(`${filterMonth}-01`)} 起`;
       return;
     }
 
-    currentDateLabel.textContent = "全部";
+    currentDateLabel.textContent = "今天起";
   }
 
   async function refreshEntries() {
@@ -576,17 +631,11 @@ async function initIndexPage() {
       const user = await getCurrentUser();
       if (!user) throw new Error("登入狀態已失效，請重新登入。");
 
-      if (filterDate) {
-        latestRenderedEntries = await fetchEventsByDate(user.id, filterDate);
-      } else if (filterMonth) {
-        latestRenderedEntries = await fetchEventsByMonth(user.id, filterMonth);
-      } else {
-        latestRenderedEntries = await fetchAllEvents(user.id);
-      }
+      latestRenderedEntries = await fetchEventsFromDate(user.id, getCurrentFilterStartDate());
 
       renderEventCards(entryList, latestRenderedEntries, {
         editable: true,
-        showDate: !filterDate,
+        showDate: true,
         onEdit: startEditing,
         onDelete: handleDeleteEntry,
       });
@@ -597,16 +646,16 @@ async function initIndexPage() {
       }
 
       if (filterDate) {
-        setStatus(listStatus, `已載入 ${formatDateLabel(filterDate)} 的記事。`, "success");
+        setStatus(listStatus, `已載入 ${formatDateLabel(filterDate)} 起的記事。`, "success");
         return;
       }
 
       if (filterMonth) {
-        setStatus(listStatus, `已載入 ${formatMonthLabel(filterMonth)} 的記事。`, "success");
+        setStatus(listStatus, `已載入 ${formatDateLabel(`${filterMonth}-01`)} 起的記事。`, "success");
         return;
       }
 
-      setStatus(listStatus, "已載入所有歷史資料。", "success");
+      setStatus(listStatus, "已載入今天起到未來的記事。", "success");
     } catch (error) {
       latestRenderedEntries = [];
       renderEmptyState(entryList, "目前沒有資料。");

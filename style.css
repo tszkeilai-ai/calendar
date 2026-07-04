@@ -250,6 +250,7 @@ h3 {
 
 .tab-button,
 .primary-button,
+.danger-button,
 .secondary-button,
 .ghost-button,
 .edit-button,
@@ -267,6 +268,7 @@ h3 {
 
 .tab-button:hover,
 .primary-button:hover,
+.danger-button:hover,
 .secondary-button:hover,
 .ghost-button:hover,
 .edit-button:hover,
@@ -294,6 +296,13 @@ h3 {
   box-shadow: 0 12px 26px rgba(37, 99, 235, 0.22);
 }
 
+.danger-button {
+  background: linear-gradient(135deg, var(--danger) 0%, #b91c1c 100%);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 12px 26px rgba(209, 67, 67, 0.24);
+}
+
 .secondary-button {
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.18);
@@ -314,6 +323,7 @@ h3 {
 }
 
 .primary-button:active,
+.danger-button:active,
 .secondary-button:active,
 .ghost-button:active,
 .edit-button:active,
@@ -809,7 +819,7 @@ h3 {
 
 .modal-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   position: sticky;
   bottom: calc(-18px - env(safe-area-inset-bottom));
@@ -955,7 +965,7 @@ h3 {
   }
 
   .modal-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     bottom: calc(-28px - env(safe-area-inset-bottom));
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
