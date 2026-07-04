@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>月曆頁｜手機版月曆記事板</title>
-    <link rel="stylesheet" href="./style.css?v=8.0" />
+    <link rel="stylesheet" href="./style.css?v=9.0" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./script.js?v=8.0" defer></script>
+    <script src="./script.js?v=9.0" defer></script>
   </head>
   <body data-page="calendar">
     <main class="page-shell">
@@ -110,41 +110,19 @@
 
           <div class="input-group">
             <label class="field-label" for="modal-emoji">主題 Emoji</label>
-            <div class="emoji-input-row">
-              <input
-                id="modal-emoji"
-                type="text"
-                class="text-input text-input--emoji"
-                inputmode="none"
-                autocomplete="off"
-                placeholder="請選擇 1 個 Emoji"
-                aria-describedby="modal-emoji-help"
-                readonly
-                required
-              />
-              <button
-                type="button"
-                class="ghost-button ghost-button--small emoji-clear-button"
-                id="modal-emoji-clear-button"
-              >
-                清除
-              </button>
-            </div>
-            <p class="emoji-helper-text" id="modal-emoji-help">
-              直接點下面的 Emoji 選擇，不需要切換手機鍵盤。
-            </p>
-            <div class="emoji-picker" id="modal-emoji-picker" aria-label="Emoji 選擇器">
-              <button type="button" class="emoji-picker-button" data-emoji="🩺" aria-label="選擇 🩺">🩺</button>
-              <button type="button" class="emoji-picker-button" data-emoji="✈️" aria-label="選擇 ✈️">✈️</button>
-              <button type="button" class="emoji-picker-button" data-emoji="🎂" aria-label="選擇 🎂">🎂</button>
-              <button type="button" class="emoji-picker-button" data-emoji="🎉" aria-label="選擇 🎉">🎉</button>
-              <button type="button" class="emoji-picker-button" data-emoji="🏖️" aria-label="選擇 🏖️">🏖️</button>
-              <button type="button" class="emoji-picker-button" data-emoji="📚" aria-label="選擇 📚">📚</button>
-              <button type="button" class="emoji-picker-button" data-emoji="💼" aria-label="選擇 💼">💼</button>
-              <button type="button" class="emoji-picker-button" data-emoji="❤️" aria-label="選擇 ❤️">❤️</button>
-              <button type="button" class="emoji-picker-button" data-emoji="🏠" aria-label="選擇 🏠">🏠</button>
-              <button type="button" class="emoji-picker-button" data-emoji="🍽️" aria-label="選擇 🍽️">🍽️</button>
-            </div>
+            <input
+              id="modal-emoji"
+              type="text"
+              class="text-input text-input--emoji-entry"
+              inputmode="text"
+              enterkeyhint="done"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="請輸入 1 個 Emoji"
+              required
+            />
           </div>
 
           <div class="input-group">
