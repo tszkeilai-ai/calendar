@@ -241,48 +241,40 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
     return defaultChoices;
   }
 
-  const eventDateTimeText = buildLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`);
-  if (!eventDateTimeText) {
-    return defaultChoices;
-  }
   const eventDateTime = createLocalDateTime(isoDate, `${normalizedTimeValue}:00`);
   if (!eventDateTime || Number.isNaN(eventDateTime.getTime())) {
     return defaultChoices;
   }
 
-  const nextWholeHour = new Date(eventDateTime);
-  nextWholeHour.setMinutes(0, 0, 0);
-  nextWholeHour.setHours(nextWholeHour.getHours() + 1);
+  const fifteenMinutesBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -15);
+  const oneHourBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -60);
 
-  const secondWholeHour = new Date(nextWholeHour);
-  secondWholeHour.setHours(secondWholeHour.getHours() + 1);
-
-  const nextDayNine = createLocalDateTime(isoDate, "09:00:00");
-  if (!nextDayNine || Number.isNaN(nextDayNine.getTime())) {
+  const previousDayNine = createLocalDateTime(isoDate, "09:00:00");
+  if (!previousDayNine || Number.isNaN(previousDayNine.getTime())) {
     return defaultChoices;
   }
-  nextDayNine.setDate(nextDayNine.getDate() + 1);
+  previousDayNine.setDate(previousDayNine.getDate() - 1);
 
-  const firstPatrolText = formatDateTimeToSQL(nextWholeHour);
-  const secondPatrolText = formatDateTimeToSQL(secondWholeHour);
-  const nextDayNineText = formatDateTimeToSQL(nextDayNine);
+  const previousDayNineText = formatDateTimeToSQL(previousDayNine);
 
   const dedupedChoices = new Map(
     [
       ...defaultChoices,
       {
-        value: firstPatrolText,
-        label: formatReminderOptionTimeLabel(firstPatrolText, isoDate, "(一小時內)"),
+        value: fifteenMinutesBeforeText,
+        label: formatReminderOptionTimeLabel(fifteenMinutesBeforeText, isoDate, "(前 15 分鐘)"),
       },
       {
-        value: secondPatrolText,
-        label: formatReminderOptionTimeLabel(secondPatrolText, isoDate),
+        value: oneHourBeforeText,
+        label: formatReminderOptionTimeLabel(oneHourBeforeText, isoDate, "(前 1 小時)"),
       },
       {
-        value: nextDayNineText,
-        label: "第二天 09:00",
+        value: previousDayNineText,
+        label: "前一天 09:00",
       },
-    ].map((choice) => [choice.value, choice])
+    ]
+      .filter((choice) => choice.value)
+      .map((choice) => [choice.value, choice])
   );
 
   const normalizedSelectedValue = normalizeReminderDateTimeValue(selectedValue);
