@@ -350,11 +350,24 @@ function initEventModal() {
   const modalTime = $("#modal-time");
   const modalTitleInput = $("#modal-title-input");
   const modalEmoji = $("#modal-emoji");
+  const modalEmojiPicker = $("#modal-emoji-picker");
+  const modalEmojiButtons = Array.from(modalEmojiPicker?.querySelectorAll("[data-emoji]") || []);
+  const modalEmojiClearButton = $("#modal-emoji-clear-button");
   const modalDescription = $("#modal-description");
   const modalStatus = $("#modal-status");
   const modalSubmitButton = $("#modal-submit-button");
   const closeButton = $("#modal-close-button");
   const cancelButton = $("#modal-cancel-button");
+
+  function syncEmojiPickerSelection(selectedEmoji = "") {
+    modalEmojiButtons.forEach((button) => {
+      button.classList.toggle("is-selected", button.dataset.emoji === selectedEmoji);
+    });
+
+    if (modalEmojiClearButton) {
+      modalEmojiClearButton.disabled = !selectedEmoji;
+    }
+  }
 
   function resetModalForm() {
     modalForm.reset();
@@ -363,6 +376,10 @@ function initEventModal() {
     modalState.refresh = null;
     modalState.statusElement = null;
     modalState.focusReturn = null;
+    if (modalEmoji) {
+      modalEmoji.value = "";
+    }
+    syncEmojiPickerSelection("");
     setStatus(modalStatus, "");
   }
 
@@ -414,6 +431,7 @@ function initEventModal() {
     modalTitleInput.value = entry?.title || "";
     modalEmoji.value = sanitizeSingleEmojiInput(entry?.color || "");
     modalDescription.value = entry?.description || "";
+    syncEmojiPickerSelection(modalEmoji.value);
     setStatus(modalStatus, "");
 
     modal.classList.remove("hidden");
@@ -445,6 +463,26 @@ function initEventModal() {
 
   modalEmoji?.addEventListener("input", () => {
     modalEmoji.value = sanitizeSingleEmojiInput(modalEmoji.value);
+    syncEmojiPickerSelection(modalEmoji.value);
+  });
+
+  modalEmoji?.addEventListener("click", () => {
+    modalEmojiPicker?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
+
+  modalEmojiButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const selectedEmoji = sanitizeSingleEmojiInput(button.dataset.emoji || "");
+      modalEmoji.value = selectedEmoji;
+      syncEmojiPickerSelection(selectedEmoji);
+      setStatus(modalStatus, "");
+    });
+  });
+
+  modalEmojiClearButton?.addEventListener("click", () => {
+    modalEmoji.value = "";
+    syncEmojiPickerSelection("");
+    setStatus(modalStatus, "");
   });
 
   modalForm?.addEventListener("submit", async (event) => {
@@ -452,6 +490,7 @@ function initEventModal() {
 
     const sanitizedEmoji = sanitizeSingleEmojiInput(modalEmoji.value);
     modalEmoji.value = sanitizedEmoji;
+    syncEmojiPickerSelection(sanitizedEmoji);
 
     if (!modalDate.value || !modalTime.value || !modalTitleInput.value.trim() || !sanitizedEmoji) {
       setStatus(modalStatus, "請完整填寫日期、時間、主題與 1 個 Emoji。", "error");
