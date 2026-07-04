@@ -177,14 +177,6 @@ function buildLocalDateTimeText(dateValue, timeValue = "00:00:00") {
   return `${normalizedDate} ${hours}:${minutes}:${seconds}`;
 }
 
-function shiftLocalDateTimeText(dateValue, timeValue, offsetMinutes = 0) {
-  const baseDate = createLocalDateTime(dateValue, timeValue);
-  if (!baseDate || Number.isNaN(baseDate.getTime())) return "";
-
-  const shiftedDate = new Date(baseDate.getTime() + offsetMinutes * 60000);
-  return formatDateTimeToSQL(shiftedDate);
-}
-
 function getCurrentLocalDateTimeText() {
   const now = new Date();
   return buildLocalDateTimeText(formatDateToISO(now), `${formatTimeToHM(now)}:${String(now.getSeconds()).padStart(2, "0")}`);
@@ -233,6 +225,7 @@ function populateEventTimeField(field, selectedValue = "") {
   }
 }
 
+/* 🎯 已修正的鬧鐘時間選單邏輯：無條件捨去至當個小時的整點，再往前推算 */
 function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
   const defaultChoices = [{ value: "", label: "不需要提醒" }];
   const normalizedTimeValue = formatTimeLabel(timeValue);
@@ -246,19 +239,21 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
     return defaultChoices;
   }
 
-  const currentHour = eventDateTime.getHours();
+  // 1. 無條件捨去至當前小時的整點 (例如 12:10, 12:45, 12:55 -> 12:00)
+  const currentIntegerHourDate = new Date(eventDateTime.getTime());
+  currentIntegerHourDate.setMinutes(0, 0, 0);
 
-  // 1. 前一小時內的整數點鐘
-  const oneHourBeforeInteger = new Date(eventDateTime.getTime());
-  oneHourBeforeInteger.setHours(currentHour - 1, 0, 0, 0);
-  const oneHourBeforeText = formatDateTimeToSQL(oneHourBeforeInteger);
+  // 2. 當前整點往前推 1 小時 (例如 12:00 往前推 1 小時 = 11:00)
+  const targetHour1 = new Date(currentIntegerHourDate.getTime());
+  targetHour1.setHours(targetHour1.getHours() - 1);
+  const targetHour1Text = formatDateTimeToSQL(targetHour1);
 
-  // 2. 前兩小時內的整數點鐘
-  const twoHoursBeforeInteger = new Date(eventDateTime.getTime());
-  twoHoursBeforeInteger.setHours(currentHour - 2, 0, 0, 0);
-  const twoHoursBeforeText = formatDateTimeToSQL(twoHoursBeforeInteger);
+  // 3. 當前整點往前推 2 小時 (例如 12:00 往前推 2 小時 = 10:00)
+  const targetHour2 = new Date(currentIntegerHourDate.getTime());
+  targetHour2.setHours(targetHour2.getHours() - 2);
+  const targetHour2Text = formatDateTimeToSQL(targetHour2);
 
-  // 3. 減去一天，設定為前一天的 09:00:00 整
+  // 4. 固定選項：前一天的 09:00:00 整
   const previousDayNine = createLocalDateTime(isoDate, "09:00:00");
   if (!previousDayNine || Number.isNaN(previousDayNine.getTime())) {
     return defaultChoices;
@@ -270,12 +265,12 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
     [
       ...defaultChoices,
       {
-        value: oneHourBeforeText,
-        label: formatReminderOptionTimeLabel(oneHourBeforeText, isoDate, "(前 1 小時)"),
+        value: targetHour1Text,
+        label: formatReminderOptionTimeLabel(targetHour1Text, isoDate),
       },
       {
-        value: twoHoursBeforeText,
-        label: formatReminderOptionTimeLabel(twoHoursBeforeText, isoDate, "(前 2 小時)"),
+        value: targetHour2Text,
+        label: formatReminderOptionTimeLabel(targetHour2Text, isoDate),
       },
       {
         value: previousDayNineText,
@@ -342,7 +337,7 @@ function isMissingBgColorColumnError(error) {
 }
 
 function getEventSelectColumns() {
-  return supportsBgColorColumn ? EVENT_SELECT_WITH_BG : EVENT_SELECT_BASE;
+  return supportsBgColorColumn ? EVENT_WITH_BG = EVENT_SELECT_WITH_BG : EVENT_SELECT_BASE;
 }
 
 function getEventPayload(basePayload, includeBgColor = supportsBgColorColumn) {
@@ -354,7 +349,7 @@ function getEventPayload(basePayload, includeBgColor = supportsBgColorColumn) {
 }
 
 async function runEventSelectQuery(buildQuery) {
-  const primaryResult = await buildQuery(getEventSelectColumns());
+  const primaryResult = await buildQuery(supportsBgColorColumn ? EVENT_SELECT_WITH_BG : EVENT_SELECT_BASE);
 
   if (!primaryResult.error) {
     return normalizeEventRecords(primaryResult.data || []);
@@ -362,7 +357,7 @@ async function runEventSelectQuery(buildQuery) {
 
   if (supportsBgColorColumn && isMissingBgColorColumnError(primaryResult.error)) {
     supportsBgColorColumn = false;
-    const fallbackResult = await buildQuery(getEventSelectColumns());
+    const fallbackResult = await buildQuery(EVENT_SELECT_BASE);
     if (fallbackResult.error) throw fallbackResult.error;
     return normalizeEventRecords(fallbackResult.data || []);
   }
@@ -453,7 +448,7 @@ function sanitizeSingleEmojiInput(value = "") {
   const normalizedEmoji = normalizeEmojiText(value, 1);
   if (normalizedEmoji) return normalizedEmoji;
 
-  const matchedEmoji = String(value || "").match(FALLBACK_EMOYL_INPUT_REGEX);
+  const matchedEmoji = String(value || "").match(FALLBACK_EMOJI_INPUT_REGEX);
   return matchedEmoji?.length ? normalizeEmojiText(matchedEmoji[0], 1) : "";
 }
 
@@ -1024,570 +1019,4 @@ function initEventModal() {
     try {
       setStatus(modalStatus, "正在刪除記事...");
 
-      const user = await getCurrentUser();
-      if (!user) throw new Error("登入狀態已失效，請重新登入。");
-
-      const refresh = modalState.refresh;
-      const pageStatusElement = modalState.statusElement;
-
-      await deleteEventById(modalState.editingEntryId, user.id);
-      closeEventModal({ restoreFocus: false });
-
-      try {
-        if (typeof refresh === "function") {
-          await refresh();
-        }
-
-        setStatus(pageStatusElement, "記事已刪除，畫面已即時更新。", "success");
-      } catch (refreshError) {
-        setStatus(
-          pageStatusElement,
-          `記事已刪除，但重整畫面失敗：${getErrorMessage(refreshError, "請手動重新整理畫面。")}`,
-          "error"
-        );
-      }
-    } catch (error) {
-      setStatus(modalStatus, getErrorMessage(error, "刪除失敗，請稍後再試。"), "error");
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && modalState.isOpen) {
-      closeEventModal();
-    }
-  });
-
-  modalEmoji?.addEventListener("input", () => {
-    modalEmoji.value = sanitizeSingleEmojiInput(modalEmoji.value);
-  });
-
-  [modalDate, modalEventTime].forEach((field) => {
-    field?.addEventListener("change", () => {
-      refreshReminderOptions("");
-    });
-
-    field?.addEventListener("input", () => {
-      refreshReminderOptions("");
-    });
-  });
-
-  modalForm?.addEventListener("submit", handleFormSubmit);
-
-  window.closeEventModal = closeEventModal;
-}
-
-let authMode = "login";
-
-async function initIndexPage() {
-  const authSection = $("#auth-section");
-  const appSection = $("#app-section");
-  const authForm = $("#auth-form");
-  const authMessage = $("#auth-message");
-  const authSubmitButton = $("#auth-submit-button");
-  const loginTab = $("#login-tab");
-  const registerTab = $("#register-tab");
-  const entryList = $("#entry-list");
-  const listStatus = $("#list-status");
-  const filterDateInput = $("#filter-date");
-  const filterMonthInput = $("#filter-month");
-  const clearFilterButton = $("#clear-filter-button");
-  const currentDateLabel = $("#current-date-label");
-  const openCreateModalButton = $("#open-create-modal-button");
-  const logoutButton = $("#logout-button");
-
-  let filterDate = "";
-  let filterMonth = "";
-  let latestRenderedEntries = [];
-
-  function getCurrentFilterStartDate() {
-    if (filterDate) return filterDate;
-    if (filterMonth) return `${filterMonth}-01`;
-    return getTodayISO();
-  }
-
-  function switchAuthMode(mode) {
-    authMode = mode;
-    loginTab.classList.toggle("is-active", mode === "login");
-    registerTab.classList.toggle("is-active", mode === "register");
-    authSubmitButton.textContent = mode === "login" ? "登入" : "註冊";
-
-    setStatus(
-      authMessage,
-      mode === "login" ? "請輸入帳號密碼登入。" : "建立新帳號後即可開始使用。"
-    );
-  }
-
-  function updateCurrentDateLabel() {
-    if (filterDate) {
-      currentDateLabel.textContent = `${formatDateLabel(filterDate)} 起`;
-      return;
-    }
-
-    if (filterMonth) {
-      currentDateLabel.textContent = `${formatDateLabel(`${filterMonth}-01`)} 起`;
-      return;
-    }
-
-    currentDateLabel.textContent = "今天起";
-  }
-
-  async function refreshEntries() {
-    try {
-      updateCurrentDateLabel();
-      setStatus(listStatus, "正在讀取記事資料...");
-
-      const user = await getCurrentUser();
-      if (!user) throw new Error("登入狀態已失效，請重新登入。");
-
-      latestRenderedEntries = await fetchEventsFromDate(user.id, getCurrentFilterStartDate());
-
-      renderEventCards(entryList, latestRenderedEntries, {
-        editable: true,
-        showDate: true,
-        onEdit: startEditing,
-        onDelete: handleDeleteEntry,
-      });
-      startReminderWatch(latestRenderedEntries);
-
-      if (!latestRenderedEntries.length) {
-        setStatus(listStatus, "目前沒有符合條件的記事。");
-        return;
-      }
-
-      if (filterDate) {
-        setStatus(listStatus, `已載入 ${formatDateLabel(filterDate)} 起的記事。`, "success");
-        return;
-      }
-
-      if (filterMonth) {
-        setStatus(listStatus, `已載入 ${formatDateLabel(`${filterMonth}-01`)} 起的記事。`, "success");
-        return;
-      }
-
-      setStatus(listStatus, "已載入今天起到未來的記事。", "success");
-    } catch (error) {
-      latestRenderedEntries = [];
-      startReminderWatch([]);
-      renderEmptyState(entryList, "目前沒有資料。");
-      setStatus(
-        listStatus,
-        `讀取失敗：${getErrorMessage(
-          error,
-          "暫時無法讀取資料，請確認 Supabase 資料表與權限設定。"
-        )}`,
-        "error"
-      );
-    }
-  }
-
-  function startEditing(entryId, triggerButton) {
-    const entry = latestRenderedEntries.find((item) => item.id === entryId);
-    if (!entry || typeof window.openEventModal !== "function") return;
-
-    window.openEventModal({
-      mode: "edit",
-      entry,
-      title: "修改記事",
-      submitLabel: "儲存修改",
-      refresh: refreshEntries,
-      statusElement: listStatus,
-      focusReturn: triggerButton,
-    });
-  }
-
-  async function handleDeleteEntry(entryId) {
-    const targetEntry = latestRenderedEntries.find((item) => item.id === entryId);
-    if (!targetEntry) return;
-
-    const shouldDelete = window.confirm(
-      `確定要刪除 ${formatDateLabel(targetEntry.event_date)} ${formatTimeLabel(
-        targetEntry.event_time
-      )} 的「${targetEntry.title}」嗎？`
-    );
-
-    if (!shouldDelete) return;
-
-    try {
-      setStatus(listStatus, "正在刪除記事...");
-
-      const user = await getCurrentUser();
-      if (!user) throw new Error("登入狀態已失效，請重新登入。");
-
-      await deleteEventById(entryId, user.id);
-      await refreshEntries();
-      setStatus(listStatus, "記事已刪除。", "success");
-    } catch (error) {
-      setStatus(
-        listStatus,
-        getErrorMessage(error, "刪除失敗，請稍後再試或檢查資料表權限。"),
-        "error"
-      );
-    }
-  }
-
-  async function togglePageBySession() {
-    const {
-      data: { session },
-    } = await supabaseClient.auth.getSession();
-
-    const isLoggedIn = Boolean(session);
-    authSection.classList.toggle("hidden", isLoggedIn);
-    appSection.classList.toggle("hidden", !isLoggedIn);
-
-    if (isLoggedIn) {
-      setStatus(authMessage, "");
-      await refreshEntries();
-    }
-  }
-
-  authForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    const email = $("#auth-email").value.trim();
-    const password = $("#auth-password").value.trim();
-
-    if (!email || !password) {
-      setStatus(authMessage, "請完整輸入電子郵件與密碼。", "error");
-      return;
-    }
-
-    try {
-      setStatus(authMessage, authMode === "login" ? "登入中..." : "建立帳號中...");
-
-      if (authMode === "login") {
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        setStatus(authMessage, "登入成功。", "success");
-      } else {
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) throw error;
-
-        if (!data.session) {
-          setStatus(authMessage, "註冊成功，請先到信箱完成驗證後再登入。", "success");
-        } else {
-          setStatus(authMessage, "註冊並登入成功。", "success");
-        }
-      }
-
-      authForm.reset();
-      await togglePageBySession();
-    } catch (error) {
-      setStatus(
-        authMessage,
-        getErrorMessage(error, "登入或註冊失敗，請稍後再試。"),
-        "error"
-      );
-    }
-  });
-
-  loginTab?.addEventListener("click", () => switchAuthMode("login"));
-  registerTab?.addEventListener("click", () => switchAuthMode("register"));
-
-  filterDateInput?.addEventListener("change", async (event) => {
-    filterDate = event.target.value || "";
-    if (filterDate) {
-      filterMonth = "";
-      filterMonthInput.value = "";
-    }
-    await refreshEntries();
-  });
-
-  filterMonthInput?.addEventListener("change", async (event) => {
-    filterMonth = event.target.value || "";
-    if (filterMonth) {
-      filterDate = "";
-      filterDateInput.value = "";
-    }
-    await refreshEntries();
-  });
-
-  clearFilterButton?.addEventListener("click", async () => {
-    filterDate = "";
-    filterMonth = "";
-    filterDateInput.value = "";
-    filterMonthInput.value = "";
-    await refreshEntries();
-  });
-
-  openCreateModalButton?.addEventListener("click", () => {
-    if (typeof window.openEventModal !== "function") return;
-
-    const fallbackDate = filterDate || (filterMonth ? `${filterMonth}-01` : formatDateToISO(new Date()));
-
-    window.openEventModal({
-      mode: "create",
-      defaultDate: fallbackDate,
-      defaultTime: formatTimeToHM(new Date()),
-      title: "新增記事",
-      submitLabel: "儲存",
-      refresh: refreshEntries,
-      statusElement: listStatus,
-      focusReturn: openCreateModalButton,
-    });
-  });
-
-  logoutButton?.addEventListener("click", async () => {
-    await signOutUser({ statusElement: listStatus });
-  });
-
-  supabaseClient.auth.onAuthStateChange(async () => {
-    await togglePageBySession();
-  });
-
-  switchAuthMode("login");
-  updateCurrentDateLabel();
-  await togglePageBySession();
-}
-
-let calendarCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-let calendarEvents = [];
-let selectedCalendarDate = formatDateToISO(new Date());
-
-async function initCalendarPage() {
-  const monthTitle = $("#calendar-month-title");
-  const calendarGrid = $("#calendar-grid");
-  const selectedDateTitle = $("#selected-date-title");
-  const selectedDateChip = $("#selected-date-chip");
-  const selectedDateList = $("#selected-date-list");
-  const calendarStatus = $("#calendar-status");
-  const prevMonthButton = $("#prev-month-button");
-  const currentMonthButton = $("#current-month-button");
-  const nextMonthButton = $("#next-month-button");
-  const {
-    data: { session },
-  } = await supabaseClient.auth.getSession();
-
-  if (!session) {
-    window.location.href = "./index.html";
-    return;
-  }
-
-  function buildEventMap() {
-    return calendarEvents.reduce((map, event) => {
-      if (!map[event.event_date]) {
-        map[event.event_date] = [];
-      }
-      map[event.event_date].push(event);
-      return map;
-    }, {});
-  }
-
-  async function refreshCurrentMonth(savedEntry = null) {
-    if (savedEntry?.event_date) {
-      const [year, month] = String(savedEntry.event_date)
-        .split("-")
-        .map((value) => Number(value));
-      if (year && month) {
-        calendarCurrentMonth = new Date(year, month - 1, 1);
-      }
-      selectedCalendarDate = savedEntry.event_date;
-    }
-
-    await loadMonthEvents(calendarCurrentMonth);
-  }
-
-  function openCreateModal(isoDate, focusReturn = null) {
-    if (typeof window.openEventModal !== "function") return;
-
-    window.openEventModal({
-      mode: "create",
-      defaultDate: isoDate,
-      defaultTime: formatTimeToHM(new Date()),
-      title: `新增 ${formatDateLabel(isoDate)} 記事`,
-      submitLabel: "儲存",
-      refresh: refreshCurrentMonth,
-      statusElement: calendarStatus,
-      focusReturn,
-    });
-  }
-
-  function openEditModal(entryId, focusReturn = null) {
-    const entry = calendarEvents.find((item) => item.id === entryId);
-    if (!entry || typeof window.openEventModal !== "function") return;
-
-    window.openEventModal({
-      mode: "edit",
-      entry,
-      title: `修改 ${formatDateLabel(entry.event_date)} 記事`,
-      submitLabel: "儲存修改",
-      refresh: refreshCurrentMonth,
-      statusElement: calendarStatus,
-      focusReturn,
-    });
-  }
-
-  function renderCalendar(baseDate) {
-    const eventMap = buildEventMap();
-    const year = baseDate.getFullYear();
-    const month = baseDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const totalDays = lastDay.getDate();
-    const leadingBlankDays = firstDay.getDay();
-    const todayISO = formatDateToISO(new Date());
-
-    monthTitle.textContent = formatMonthTitle(baseDate);
-    calendarGrid.innerHTML = "";
-
-    for (let i = 0; i < leadingBlankDays; i += 1) {
-      const blankCell = document.createElement("div");
-      blankCell.className = "calendar-day is-muted";
-      blankCell.setAttribute("aria-hidden", "true");
-      calendarGrid.appendChild(blankCell);
-    }
-
-    for (let day = 1; day <= totalDays; day += 1) {
-      const isoDate = formatDateToISO(new Date(year, month, day));
-      const dayEvents = eventMap[isoDate] || [];
-      const emojiTokens = collectDayEmojiTokens(dayEvents, 4);
-      const extraCount = Math.max(dayEvents.length - 4, 0);
-      const dayButton = document.createElement("button");
-
-      dayButton.type = "button";
-      dayButton.className = "calendar-day";
-
-      if (dayEvents.length) {
-        dayButton.classList.add("has-events");
-      }
-
-      const dayBackgroundColor = pickDayBackgroundColor(dayEvents);
-      if (dayBackgroundColor) {
-        dayButton.style.background = dayBackgroundColor;
-      }
-
-      if (isoDate === selectedCalendarDate) {
-        dayButton.classList.add("is-selected");
-      }
-
-      if (isoDate === todayISO) {
-        dayButton.classList.add("is-today");
-      }
-
-      dayButton.innerHTML = `
-        <div class="calendar-day-header">
-          <span class="day-number">${day}</span>
-        </div>
-        <div class="calendar-day-footer">
-          ${
-            emojiTokens.length
-              ? `
-                <div class="event-emojis-box">
-                  <div class="event-emojis" aria-label="當天主題 Emoji">
-                    ${emojiTokens
-                      .map((emoji) => `<span class="event-emoji">${escapeHtml(emoji)}</span>`)
-                      .join("")}
-                  </div>
-                </div>
-              `
-              : ""
-          }
-        </div>
-        ${
-          extraCount > 0
-            ? `<span class="calendar-day-more" aria-label="另外還有 ${extraCount} 筆記事">+${extraCount}</span>`
-            : ""
-        }
-      `;
-
-      dayButton.addEventListener("click", () => {
-        selectedCalendarDate = isoDate;
-        renderCalendar(baseDate);
-        renderSelectedDateDetails(isoDate);
-      });
-
-      calendarGrid.appendChild(dayButton);
-    }
-  }
-
-  function renderSelectedDateDetails(isoDate) {
-    const dayEvents = calendarEvents.filter((event) => event.event_date === isoDate);
-    selectedDateTitle.textContent = `${formatDateLabel(isoDate)} 行程詳情`;
-    selectedDateChip.textContent = formatDateLabel(isoDate);
-
-    if (!dayEvents.length) {
-      renderEmptyActionState(selectedDateList, isoDate, () => {
-        openCreateModal(selectedCalendarDate);
-      });
-      return;
-    }
-
-    renderEventCards(selectedDateList, dayEvents, {
-      quickEdit: true,
-      onQuickEdit: openEditModal,
-    });
-  }
-
-  async function loadMonthEvents(baseDate) {
-    try {
-      setStatus(calendarStatus, "正在載入月曆資料...");
-
-      const user = await getCurrentUser();
-      if (!user) throw new Error("登入狀態已失效，請重新登入。");
-
-      const monthValue = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, "0")}`;
-      calendarEvents = await fetchEventsByMonth(user.id, monthValue);
-      startReminderWatch(calendarEvents);
-
-      if (!isSameMonth(selectedCalendarDate, baseDate)) {
-        const todayISO = formatDateToISO(new Date());
-        selectedCalendarDate = isSameMonth(todayISO, baseDate)
-          ? todayISO
-          : formatDateToISO(new Date(baseDate.getFullYear(), baseDate.getMonth(), 1));
-      }
-
-      renderCalendar(baseDate);
-      renderSelectedDateDetails(selectedCalendarDate);
-      setStatus(calendarStatus, `${formatMonthTitle(baseDate)}資料已載入。`, "success");
-    } catch (error) {
-      startReminderWatch([]);
-      calendarGrid.innerHTML = "";
-      selectedDateTitle.textContent = "資料載入失敗";
-      selectedDateChip.textContent = "讀取失敗";
-      renderEmptyState(selectedDateList, "無法載入該月份資料，請確認資料表與權限設定。");
-      setStatus(calendarStatus, getErrorMessage(error, "讀取月曆資料失敗。"), "error");
-    }
-  }
-
-  prevMonthButton?.addEventListener("click", async () => {
-    calendarCurrentMonth = new Date(
-      calendarCurrentMonth.getFullYear(),
-      calendarCurrentMonth.getMonth() - 1,
-      1
-    );
-    await loadMonthEvents(calendarCurrentMonth);
-  });
-
-  nextMonthButton?.addEventListener("click", async () => {
-    calendarCurrentMonth = new Date(
-      calendarCurrentMonth.getFullYear(),
-      calendarCurrentMonth.getMonth() + 1,
-      1
-    );
-    await loadMonthEvents(calendarCurrentMonth);
-  });
-
-  currentMonthButton?.addEventListener("click", async () => {
-    const today = new Date();
-    calendarCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    selectedCalendarDate = formatDateToISO(today);
-    await loadMonthEvents(calendarCurrentMonth);
-  });
-
-  await loadMonthEvents(calendarCurrentMonth);
-}
-
-window.addEventListener("DOMContentLoaded", async () => {
-  try {
-    initEventModal();
-
-    if (currentPage === "index") {
-      await initIndexPage();
-    }
-
-    if (currentPage === "calendar") {
-      await initCalendarPage();
-    }
-  } catch (error) {
-    console.error("初始化失敗：", error);
-  }
-});
+      const user =
