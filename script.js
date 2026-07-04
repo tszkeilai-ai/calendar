@@ -111,6 +111,42 @@ function normalizeReminderDateTimeValue(value = null) {
   return null;
 }
 
+function parseReminderDateTime(value = null) {
+  const normalizedValue = normalizeReminderDateTimeValue(value);
+  if (!normalizedValue) return null;
+
+  const parsedDate = new Date(normalizedValue.replace(" ", "T"));
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+}
+
+function getRelativeReminderDayLabel(targetDate, referenceDateValue) {
+  if (!(targetDate instanceof Date) || Number.isNaN(targetDate.getTime())) {
+    return "";
+  }
+
+  const targetDateISO = formatDateToISO(targetDate);
+  if (!referenceDateValue) return formatDateLabel(targetDateISO);
+  if (targetDateISO === referenceDateValue) return "當天";
+
+  const referenceDate = createLocalDateTime(referenceDateValue, "00:00:00");
+  const targetMidnight = createLocalDateTime(targetDateISO, "00:00:00");
+  if (!referenceDate || !targetMidnight) return formatDateLabel(targetDateISO);
+
+  const diffDays = Math.round((targetMidnight.getTime() - referenceDate.getTime()) / 86400000);
+  if (diffDays === -1) return "前一天";
+  if (diffDays === 1) return "後一天";
+
+  return formatDateLabel(targetDateISO);
+}
+
+function formatReminderDisplayLabel(value = null, referenceDateValue = "") {
+  const parsedDate = parseReminderDateTime(value);
+  if (!parsedDate) return "";
+
+  const dayLabel = getRelativeReminderDayLabel(parsedDate, referenceDateValue);
+  return `${dayLabel} ${formatTimeToHM(parsedDate)}`;
+}
+
 function buildEventTimeChoices(selectedValue = "") {
   const choices = new Set();
 
@@ -150,7 +186,7 @@ function populateEventTimeField(field, selectedValue = "") {
   }
 }
 
-function buildReminderChoices(isoDate, timeValue) {
+function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
   const defaultChoices = [{ value: "", label: "不需要提醒" }];
   const normalizedTimeValue = formatTimeLabel(timeValue);
 
@@ -163,48 +199,44 @@ function buildReminderChoices(isoDate, timeValue) {
     return defaultChoices;
   }
 
-  const nextWholeHour = new Date(eventDateTime);
-  nextWholeHour.setMinutes(0, 0, 0);
-  nextWholeHour.setHours(nextWholeHour.getHours() + 1);
-
-  const secondWholeHour = new Date(nextWholeHour);
-  secondWholeHour.setHours(secondWholeHour.getHours() + 1);
-
-  const nextDayMorning = createLocalDateTime(isoDate, "09:00:00");
-  nextDayMorning.setDate(nextDayMorning.getDate() + 1);
-
-  const nextDayISO = formatDateToISO(nextDayMorning);
-  const firstLabelPrefix =
-    formatDateToISO(nextWholeHour) === nextDayISO
-      ? `第二天 ${formatTimeToHM(nextWholeHour)}`
-      : formatTimeToHM(nextWholeHour);
-  const secondLabelPrefix =
-    formatDateToISO(secondWholeHour) === nextDayISO
-      ? `第二天 ${formatTimeToHM(secondWholeHour)}`
-      : formatTimeToHM(secondWholeHour);
-
-  return [
-    ...defaultChoices,
-    {
-      value: formatDateTimeToSQL(nextWholeHour),
-      label: `${firstLabelPrefix} (一小時內)`,
-    },
-    {
-      value: formatDateTimeToSQL(secondWholeHour),
-      label: secondLabelPrefix,
-    },
-    {
-      value: formatDateTimeToSQL(nextDayMorning),
-      label: "第二天 09:00",
-    },
+  const reminderCandidates = [
+    { offsetMinutes: 10, suffix: "10 分鐘前" },
+    { offsetMinutes: 30, suffix: "30 分鐘前" },
+    { offsetMinutes: 60, suffix: "1 小時前" },
+    { offsetMinutes: 1440, suffix: "1 天前" },
   ];
+
+  const dedupedChoices = new Map(defaultChoices.map((choice) => [choice.value, choice]));
+
+  reminderCandidates.forEach(({ offsetMinutes, suffix }) => {
+    const reminderDate = new Date(eventDateTime.getTime() - offsetMinutes * 60000);
+    if (Number.isNaN(reminderDate.getTime()) || reminderDate.getTime() >= eventDateTime.getTime()) {
+      return;
+    }
+
+    const value = formatDateTimeToSQL(reminderDate);
+    const label = `${getRelativeReminderDayLabel(reminderDate, isoDate)} ${formatTimeToHM(
+      reminderDate
+    )}（${suffix}）`;
+    dedupedChoices.set(value, { value, label });
+  });
+
+  const normalizedSelectedValue = normalizeReminderDateTimeValue(selectedValue);
+  if (normalizedSelectedValue && !dedupedChoices.has(normalizedSelectedValue)) {
+    dedupedChoices.set(normalizedSelectedValue, {
+      value: normalizedSelectedValue,
+      label: `自訂 ${formatReminderDisplayLabel(normalizedSelectedValue, isoDate)}`,
+    });
+  }
+
+  return Array.from(dedupedChoices.values());
 }
 
 function populateReminderField(field, isoDate, timeValue, selectedValue = "") {
   if (!field) return;
 
   const normalizedSelectedValue = normalizeReminderDateTimeValue(selectedValue) || "";
-  const choices = buildReminderChoices(isoDate, timeValue);
+  const choices = buildReminderChoices(isoDate, timeValue, normalizedSelectedValue);
 
   field.innerHTML = choices
     .map(
@@ -440,6 +472,7 @@ function renderEventCards(targetElement, events, options = {}) {
   targetElement.innerHTML = events
     .map((event) => {
       const emojiText = normalizeEmojiText(event.color);
+      const reminderLabel = formatReminderDisplayLabel(event.reminder_time, event.event_date);
 
       return `
         <li class="entry-item ${quickEdit ? "entry-item--quick-edit" : ""}">
@@ -455,6 +488,11 @@ function renderEventCards(targetElement, events, options = {}) {
             </div>
             <span class="entry-topic">${escapeHtml(event.title)}</span>
           </div>
+          ${
+            reminderLabel
+              ? `<p class="entry-reminder-line">⏰ 鬧鐘：${escapeHtml(reminderLabel)}</p>`
+              : ""
+          }
           <p class="entry-note">${escapeHtml(event.description?.trim() || "沒有備註")}</p>
           ${
             editable
@@ -511,6 +549,127 @@ function renderEventCards(targetElement, events, options = {}) {
       button.addEventListener("click", () => onQuickEdit(button.dataset.quickEditId, button));
     });
   }
+}
+
+const REMINDER_CHECK_INTERVAL = 30000;
+const REMINDER_GRACE_PERIOD = 5 * 60 * 1000;
+const reminderToastKeys = new Set();
+let reminderCheckTimer = null;
+
+function getReminderStorageKey(event = {}) {
+  return `calendar-reminder:${event.id || "unknown"}:${normalizeReminderDateTimeValue(event.reminder_time) || ""}`;
+}
+
+function hasReminderBeenTriggered(event = {}) {
+  try {
+    return window.localStorage.getItem(getReminderStorageKey(event)) === "done";
+  } catch (error) {
+    return false;
+  }
+}
+
+function markReminderAsTriggered(event = {}) {
+  try {
+    window.localStorage.setItem(getReminderStorageKey(event), "done");
+  } catch (error) {
+    console.warn("無法寫入提醒快取：", error);
+  }
+}
+
+function ensureAlarmToastRegion() {
+  let region = document.querySelector(".alarm-toast-region");
+  if (region) return region;
+
+  region = document.createElement("div");
+  region.className = "alarm-toast-region";
+  document.body.appendChild(region);
+  return region;
+}
+
+function showAlarmToast(title, message, key) {
+  if (key && reminderToastKeys.has(key)) return;
+  if (key) reminderToastKeys.add(key);
+
+  const region = ensureAlarmToastRegion();
+  const toast = document.createElement("article");
+  toast.className = "alarm-toast";
+  toast.innerHTML = `
+    <p class="alarm-toast__title">${escapeHtml(title)}</p>
+    <p class="alarm-toast__message">${escapeHtml(message)}</p>
+  `;
+
+  region.appendChild(toast);
+
+  window.setTimeout(() => {
+    toast.remove();
+    if (key) reminderToastKeys.delete(key);
+  }, 6000);
+}
+
+async function requestNotificationPermissionIfPossible() {
+  if (typeof Notification === "undefined") return "unsupported";
+  if (Notification.permission !== "default") return Notification.permission;
+
+  try {
+    return await Notification.requestPermission();
+  } catch (error) {
+    return Notification.permission;
+  }
+}
+
+function triggerReminder(event) {
+  if (!event?.id || !event?.reminder_time || hasReminderBeenTriggered(event)) return;
+
+  const reminderKey = getReminderStorageKey(event);
+  const eventTimeLabel = formatTimeLabel(event.event_time);
+  const reminderLabel = formatReminderDisplayLabel(event.reminder_time, event.event_date);
+  const title = `⏰ ${event.title || "記事提醒"}`;
+  const message = `${formatDateLabel(event.event_date)} ${eventTimeLabel}，提醒時間：${reminderLabel}`;
+
+  markReminderAsTriggered(event);
+  showAlarmToast(title, message, reminderKey);
+
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    navigator.vibrate([180, 120, 180]);
+  }
+
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    try {
+      new Notification(title, {
+        body: message,
+        tag: reminderKey,
+      });
+    } catch (error) {
+      console.warn("建立通知失敗：", error);
+    }
+  }
+}
+
+function startReminderWatch(events = []) {
+  if (reminderCheckTimer) {
+    window.clearInterval(reminderCheckTimer);
+    reminderCheckTimer = null;
+  }
+
+  const reminderEvents = (events || []).filter((event) => event?.id && event?.reminder_time);
+  if (!reminderEvents.length) return;
+
+  const checkReminders = () => {
+    const now = Date.now();
+
+    reminderEvents.forEach((event) => {
+      const reminderDate = parseReminderDateTime(event.reminder_time);
+      if (!reminderDate) return;
+
+      const reminderTime = reminderDate.getTime();
+      if (reminderTime <= now && now - reminderTime <= REMINDER_GRACE_PERIOD) {
+        triggerReminder(event);
+      }
+    });
+  };
+
+  checkReminders();
+  reminderCheckTimer = window.setInterval(checkReminders, REMINDER_CHECK_INTERVAL);
 }
 
 async function getCurrentUser() {
@@ -652,6 +811,10 @@ function initEventModal() {
           reminder_time: document.getElementById("modal-reminder-time")?.value || null,
           bg_color: normalizeBgColor(modalBgColor?.value || "#ffffff"),
         };
+
+        if (payload.reminder_time) {
+          await requestNotificationPermissionIfPossible();
+        }
 
         const savedEntry = await saveEventRecord({
           mode: modalState.mode === "edit" && modalState.editingEntryId ? "edit" : "create",
@@ -920,6 +1083,7 @@ async function initIndexPage() {
         onEdit: startEditing,
         onDelete: handleDeleteEntry,
       });
+      startReminderWatch(latestRenderedEntries);
 
       if (!latestRenderedEntries.length) {
         setStatus(listStatus, "目前沒有符合條件的記事。");
@@ -939,6 +1103,7 @@ async function initIndexPage() {
       setStatus(listStatus, "已載入今天起到未來的記事。", "success");
     } catch (error) {
       latestRenderedEntries = [];
+      startReminderWatch([]);
       renderEmptyState(entryList, "目前沒有資料。");
       setStatus(
         listStatus,
@@ -1145,6 +1310,12 @@ async function initCalendarPage() {
 
   async function refreshCurrentMonth(savedEntry = null) {
     if (savedEntry?.event_date) {
+      const [year, month] = String(savedEntry.event_date)
+        .split("-")
+        .map((value) => Number(value));
+      if (year && month) {
+        calendarCurrentMonth = new Date(year, month - 1, 1);
+      }
       selectedCalendarDate = savedEntry.event_date;
     }
 
@@ -1291,6 +1462,7 @@ async function initCalendarPage() {
 
       const monthValue = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, "0")}`;
       calendarEvents = await fetchEventsByMonth(user.id, monthValue);
+      startReminderWatch(calendarEvents);
 
       if (!isSameMonth(selectedCalendarDate, baseDate)) {
         const todayISO = formatDateToISO(new Date());
@@ -1303,6 +1475,7 @@ async function initCalendarPage() {
       renderSelectedDateDetails(selectedCalendarDate);
       setStatus(calendarStatus, `${formatMonthTitle(baseDate)}資料已載入。`, "success");
     } catch (error) {
+      startReminderWatch([]);
       calendarGrid.innerHTML = "";
       selectedDateTitle.textContent = "資料載入失敗";
       selectedDateChip.textContent = "讀取失敗";

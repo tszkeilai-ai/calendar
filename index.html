@@ -3,34 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>手機版月曆記事板</title>
-    <link rel="stylesheet" href="./style.css?v=15.0" />
+    <title>資料管理頁｜手機版月曆記事板</title>
+    <link rel="stylesheet" href="./style.css?v=16.0" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="./script.js?v=15.0" defer></script>
+    <script src="./script.js?v=16.0" defer></script>
   </head>
   <body data-page="index">
     <main class="page-shell">
-      <section class="panel auth-panel" id="auth-section">
+      <section id="auth-section" class="panel auth-panel">
         <div class="brand-block">
-          <p class="eyebrow">Supabase 雲端同步</p>
-          <h1>手機版月曆記事板</h1>
-          <p class="muted-text">
-            先登入或註冊帳號，登入後即可在手機上快速管理記事，並切換到月曆頁查看每日安排。
-          </p>
+          <p class="eyebrow">手機版月曆記事板</p>
+          <h1>登入後開始管理記事</h1>
+          <p class="muted-text">可在資料管理頁與月曆頁共用同一套記事內容、提醒時間與格子底色。</p>
         </div>
 
         <div class="auth-switch" role="tablist" aria-label="登入或註冊">
-          <button
-            type="button"
-            class="tab-button is-active"
-            id="login-tab"
-            data-mode="login"
-          >
-            登入
-          </button>
-          <button type="button" class="tab-button" id="register-tab" data-mode="register">
-            註冊
-          </button>
+          <button type="button" class="tab-button is-active" id="login-tab">登入</button>
+          <button type="button" class="tab-button" id="register-tab">註冊</button>
         </div>
 
         <form id="auth-form" class="auth-form">
@@ -38,11 +27,10 @@
             <label class="field-label" for="auth-email">電子郵件</label>
             <input
               id="auth-email"
-              name="email"
               type="email"
               class="text-input"
-              autocomplete="email"
               placeholder="請輸入電子郵件"
+              autocomplete="email"
               required
             />
           </div>
@@ -51,34 +39,29 @@
             <label class="field-label" for="auth-password">密碼</label>
             <input
               id="auth-password"
-              name="password"
               type="password"
               class="text-input"
+              placeholder="請輸入密碼"
               autocomplete="current-password"
-              placeholder="請輸入至少 6 碼密碼"
-              minlength="6"
               required
             />
           </div>
 
           <button type="submit" class="primary-button" id="auth-submit-button">登入</button>
+          <p id="auth-message" class="status-message" aria-live="polite"></p>
         </form>
-
-        <p id="auth-message" class="status-message" aria-live="polite"></p>
       </section>
 
-      <section class="panel app-panel hidden" id="app-section">
+      <section id="app-section" class="panel app-panel hidden">
         <header class="topbar topbar--app">
           <div>
             <p class="eyebrow">資料管理頁</p>
-            <h2>我的記事列表</h2>
+            <h1>我的記事資料</h1>
           </div>
 
           <div class="topbar-actions">
             <a class="secondary-button" href="./calendar.html">前往月曆頁</a>
-            <button type="button" class="primary-button" id="open-create-modal-button">
-              新增記事
-            </button>
+            <button type="button" class="primary-button" id="open-create-modal-button">新增記事</button>
             <button type="button" class="ghost-button" id="logout-button">登出</button>
           </div>
         </header>
@@ -86,34 +69,35 @@
         <section class="panel filter-panel filter-panel--compact">
           <div class="section-heading section-heading--compact">
             <div>
-              <p class="eyebrow">歷史資料篩選器</p>
-              <h3>快速篩選</h3>
+              <p class="eyebrow">篩選條件</p>
+              <h2>從指定日期往後查看</h2>
             </div>
-            <span id="current-date-label" class="date-chip">全部</span>
+            <div class="topbar-actions">
+              <span class="date-chip" id="current-date-label">今天起</span>
+              <button type="button" class="ghost-button ghost-button--small" id="clear-filter-button">
+                清除篩選
+              </button>
+            </div>
           </div>
 
-          <div class="filter-scroller" aria-label="歷史資料篩選器">
-            <label class="compact-field">
-              <span>日期</span>
+          <div class="filter-scroller">
+            <label class="compact-field" for="filter-date">
+              指定日期
               <input id="filter-date" type="date" class="text-input text-input--compact" />
             </label>
 
-            <label class="compact-field">
-              <span>月份</span>
+            <label class="compact-field" for="filter-month">
+              指定月份
               <input id="filter-month" type="month" class="text-input text-input--compact" />
             </label>
-
-            <button type="button" class="ghost-button ghost-button--small" id="clear-filter-button">
-              顯示全部
-            </button>
           </div>
         </section>
 
         <section class="panel list-panel">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">即時更新</p>
-              <h3>記事列表</h3>
+              <p class="eyebrow">記事列表</p>
+              <h2>近期與未來行程</h2>
             </div>
           </div>
 
@@ -125,12 +109,7 @@
 
     <div class="modal hidden" id="event-modal" aria-hidden="true">
       <div class="modal-backdrop" data-modal-close></div>
-      <section
-        class="modal-card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header class="modal-header">
           <div>
             <h3 id="modal-title">新增記事</h3>
@@ -142,14 +121,23 @@
         </header>
 
         <form id="event-form" class="modal-form">
-          <div class="input-group">
-            <label class="field-label" for="modal-date">日期</label>
-            <input id="modal-date" type="date" class="text-input" required />
+          <div class="modal-field-grid modal-field-grid--two">
+            <div class="input-group">
+              <label class="field-label" for="modal-date">日期</label>
+              <input id="modal-date" type="date" class="text-input" required />
+            </div>
+
+            <div class="input-group">
+              <label class="field-label" for="modal-event-time">時間</label>
+              <select id="modal-event-time" class="text-input"></select>
+            </div>
           </div>
 
           <div class="input-group">
-            <label class="field-label" for="modal-time">時間</label>
-            <input id="modal-time" type="time" class="text-input" required />
+            <label class="field-label" for="modal-reminder-time">⏰ 設定鬧鐘</label>
+            <select id="modal-reminder-time" class="text-input">
+              <option value="">不需要提醒</option>
+            </select>
           </div>
 
           <div class="input-group">
@@ -191,15 +179,18 @@
             ></textarea>
           </div>
 
+          <div class="input-group">
+            <label class="field-label" for="modal-bg-color">自訂月曆格子底色</label>
+            <div class="modal-color-picker">
+              <input type="color" id="modal-bg-color" value="#ffffff" class="modal-color-picker__input" />
+              <span class="modal-color-picker__hint">點擊方塊選擇專屬顏色</span>
+            </div>
+          </div>
+
           <p id="modal-status" class="status-message" aria-live="polite"></p>
 
           <div class="modal-actions">
-            <button
-              type="button"
-              class="danger-button"
-              id="modal-delete-button"
-              style="display: none;"
-            >
+            <button type="button" class="danger-button" id="modal-delete-button" style="display: none;">
               刪除記事
             </button>
             <button type="submit" class="primary-button" id="modal-submit-button">儲存</button>
@@ -216,6 +207,5 @@
       <option value="慶祝"></option>
       <option value="生日"></option>
     </datalist>
-
   </body>
 </html>

@@ -59,6 +59,7 @@ a {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -226,6 +227,37 @@ h3 {
 .note-input {
   min-height: 112px;
   resize: vertical;
+}
+
+.modal-field-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-field-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.modal-color-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.modal-color-picker__input {
+  width: 50px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.modal-color-picker__hint {
+  font-size: 0.85rem;
+  color: var(--text-soft);
 }
 
 #modal-title-input,
@@ -477,6 +509,13 @@ h3 {
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.entry-reminder-line {
+  margin: 0 0 10px;
+  color: var(--primary-dark);
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .entry-actions {
@@ -829,6 +868,43 @@ h3 {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.96) 22%);
 }
 
+.alarm-toast-region {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  left: 14px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.alarm-toast {
+  margin-left: auto;
+  width: min(100%, 360px);
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: rgba(21, 32, 51, 0.94);
+  color: #ffffff;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.22);
+  pointer-events: auto;
+}
+
+.alarm-toast__title {
+  margin: 0 0 6px;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.alarm-toast__message {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.55;
+  font-size: 0.88rem;
+}
+
 @keyframes modalBackdropIn {
   from {
     opacity: 0;
@@ -956,6 +1032,10 @@ h3 {
     padding: 0;
   }
 
+  .modal-field-grid--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .modal-card {
     width: 100%;
     max-height: 92vh;
@@ -968,6 +1048,16 @@ h3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     bottom: calc(-28px - env(safe-area-inset-bottom));
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .alarm-toast-region {
+    top: max(14px, env(safe-area-inset-top));
+    right: 12px;
+    left: 12px;
+  }
+
+  .alarm-toast {
+    width: 100%;
   }
 }
 
