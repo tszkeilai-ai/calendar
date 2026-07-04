@@ -88,9 +88,18 @@
             <input id="modal-date" type="date" class="text-input" required />
           </div>
 
-          <div class="input-group">
-            <label class="field-label" for="modal-time">時間</label>
-            <input id="modal-time" type="time" class="text-input" required />
+          <div class="row-container" style="display: flex; gap: 12px; width: 100%; margin-bottom: 16px;">
+            <div class="input-group" style="flex: 1; margin-bottom: 0;">
+              <label class="field-label">時間</label>
+              <select id="modal-event-time" class="text-input" style="width: 100%;" required></select>
+            </div>
+
+            <div class="input-group" style="flex: 1; margin-bottom: 0;">
+              <label class="field-label">⏰ 設定鬧鐘</label>
+              <select id="modal-reminder-time" class="text-input" style="width: 100%;">
+                <option value="">不需要提醒</option>
+              </select>
+            </div>
           </div>
 
           <div class="input-group">

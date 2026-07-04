@@ -12,7 +12,7 @@ const SUPABASE_URL = "https://ppdblmxzyuacswjfftei.supabase.co";
 const SUPABASE_ANON_KEY =
   "sb_publishable_tsCRBSYpSzq9iPW2wQCRPQ_eMIKzbjf";
 const EVENTS_TABLE = "calendar_events";
-const EVENT_SELECT_BASE = "id,user_id,event_date,event_time,title,description,color";
+const EVENT_SELECT_BASE = "id,user_id,event_date,event_time,title,description,color,reminder_time";
 const EVENT_SELECT_WITH_BG = `${EVENT_SELECT_BASE},bg_color`;
 let supportsBgColorColumn = true;
 
@@ -71,6 +71,153 @@ function formatTimeLabel(timeValue = "") {
   return String(timeValue || "").slice(0, 5);
 }
 
+function createLocalDateTime(dateValue, timeValue = "00:00:00") {
+  const [year, month, day] = String(dateValue || "")
+    .split("-")
+    .map((value) => Number(value));
+  const [hours, minutes, seconds = 0] = String(timeValue || "00:00:00")
+    .split(":")
+    .map((value) => Number(value));
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    !Number.isInteger(seconds)
+  ) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day, hours, minutes, seconds, 0);
+}
+
+function formatDateTimeToSQL(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${formatDateToISO(date)} ${formatTimeToHM(date)}:${seconds}`;
+}
+
+function normalizeReminderDateTimeValue(value = null) {
+  if (!value) return null;
+
+  const rawValue = String(value).trim();
+  const matchedValue = rawValue.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/);
+  if (matchedValue) {
+    return `${matchedValue[1]} ${matchedValue[2]}`;
+  }
+
+  return null;
+}
+
+function buildEventTimeChoices(selectedValue = "") {
+  const choices = new Set();
+
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (let minute = 0; minute < 60; minute += 5) {
+      choices.add(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
+    }
+  }
+
+  const normalizedSelectedValue = formatTimeLabel(selectedValue);
+  if (normalizedSelectedValue) {
+    choices.add(normalizedSelectedValue);
+  }
+
+  return Array.from(choices).sort((left, right) => left.localeCompare(right));
+}
+
+function populateEventTimeField(field, selectedValue = "") {
+  if (!field) return;
+
+  const normalizedSelectedValue = formatTimeLabel(selectedValue);
+  if (field.tagName !== "SELECT") {
+    field.value = normalizedSelectedValue;
+    return;
+  }
+
+  const choices = buildEventTimeChoices(normalizedSelectedValue);
+  field.innerHTML = choices
+    .map(
+      (value) =>
+        `<option value="${escapeHtml(value)}"${value === normalizedSelectedValue ? " selected" : ""}>${escapeHtml(value)}</option>`
+    )
+    .join("");
+
+  if (normalizedSelectedValue) {
+    field.value = normalizedSelectedValue;
+  }
+}
+
+function buildReminderChoices(isoDate, timeValue) {
+  const defaultChoices = [{ value: "", label: "不需要提醒" }];
+  const normalizedTimeValue = formatTimeLabel(timeValue);
+
+  if (!isoDate || !normalizedTimeValue) {
+    return defaultChoices;
+  }
+
+  const eventDateTime = createLocalDateTime(isoDate, `${normalizedTimeValue}:00`);
+  if (!eventDateTime || Number.isNaN(eventDateTime.getTime())) {
+    return defaultChoices;
+  }
+
+  const nextWholeHour = new Date(eventDateTime);
+  nextWholeHour.setMinutes(0, 0, 0);
+  nextWholeHour.setHours(nextWholeHour.getHours() + 1);
+
+  const secondWholeHour = new Date(nextWholeHour);
+  secondWholeHour.setHours(secondWholeHour.getHours() + 1);
+
+  const nextDayMorning = createLocalDateTime(isoDate, "09:00:00");
+  nextDayMorning.setDate(nextDayMorning.getDate() + 1);
+
+  const nextDayISO = formatDateToISO(nextDayMorning);
+  const firstLabelPrefix =
+    formatDateToISO(nextWholeHour) === nextDayISO
+      ? `第二天 ${formatTimeToHM(nextWholeHour)}`
+      : formatTimeToHM(nextWholeHour);
+  const secondLabelPrefix =
+    formatDateToISO(secondWholeHour) === nextDayISO
+      ? `第二天 ${formatTimeToHM(secondWholeHour)}`
+      : formatTimeToHM(secondWholeHour);
+
+  return [
+    ...defaultChoices,
+    {
+      value: formatDateTimeToSQL(nextWholeHour),
+      label: `${firstLabelPrefix} (一小時內)`,
+    },
+    {
+      value: formatDateTimeToSQL(secondWholeHour),
+      label: secondLabelPrefix,
+    },
+    {
+      value: formatDateTimeToSQL(nextDayMorning),
+      label: "第二天 09:00",
+    },
+  ];
+}
+
+function populateReminderField(field, isoDate, timeValue, selectedValue = "") {
+  if (!field) return;
+
+  const normalizedSelectedValue = normalizeReminderDateTimeValue(selectedValue) || "";
+  const choices = buildReminderChoices(isoDate, timeValue);
+
+  field.innerHTML = choices
+    .map(
+      (choice) =>
+        `<option value="${escapeHtml(choice.value)}"${choice.value === normalizedSelectedValue ? " selected" : ""}>${escapeHtml(choice.label)}</option>`
+    )
+    .join("");
+
+  field.value = choices.some((choice) => choice.value === normalizedSelectedValue)
+    ? normalizedSelectedValue
+    : "";
+}
+
 function normalizeBgColor(value = "") {
   const normalized = String(value || "").trim();
   return /^#([0-9a-fA-F]{6})$/.test(normalized) ? normalized : "#ffffff";
@@ -79,6 +226,7 @@ function normalizeBgColor(value = "") {
 function normalizeEventRecord(record = {}) {
   return {
     ...record,
+    reminder_time: normalizeReminderDateTimeValue(record?.reminder_time),
     bg_color: normalizeBgColor(record?.bg_color),
   };
 }
@@ -446,7 +594,8 @@ function initEventModal() {
   const modalSubtitle = $("#modal-subtitle");
   const modalForm = $("#event-form");
   const modalDate = $("#modal-date");
-  const modalTime = $("#modal-time");
+  const modalEventTime = $("#modal-event-time") || $("#modal-time");
+  const modalReminderTime = $("#modal-reminder-time");
   const modalTitleInput = $("#modal-title-input");
   const modalEmoji = $("#modal-emoji");
   const modalDescription = $("#modal-description");
@@ -462,6 +611,15 @@ function initEventModal() {
     modalDeleteButton.style.display = mode === "edit" ? "block" : "none";
   }
 
+  function refreshReminderOptions(selectedValue = "") {
+    populateReminderField(
+      modalReminderTime,
+      modalDate?.value || "",
+      modalEventTime?.value || "",
+      selectedValue
+    );
+  }
+
   function resetModalForm() {
     modalForm.reset();
     modalState.mode = "create";
@@ -475,6 +633,8 @@ function initEventModal() {
     if (modalBgColor) {
       modalBgColor.value = "#ffffff";
     }
+    populateEventTimeField(modalEventTime, formatTimeToHM(new Date()));
+    refreshReminderOptions("");
     syncDeleteButtonVisibility("create");
     setStatus(modalStatus, "");
   }
@@ -528,13 +688,14 @@ function initEventModal() {
     syncDeleteButtonVisibility(mode);
 
     modalDate.value = entry?.event_date || defaultDate;
-    modalTime.value = formatTimeLabel(entry?.event_time || defaultTime);
+    populateEventTimeField(modalEventTime, formatTimeLabel(entry?.event_time || defaultTime));
     modalTitleInput.value = entry?.title || "";
     modalEmoji.value = sanitizeSingleEmojiInput(entry?.color || "");
     modalDescription.value = entry?.description || "";
     if (modalBgColor) {
       modalBgColor.value = normalizeBgColor(entry?.bg_color || "#ffffff");
     }
+    refreshReminderOptions(mode === "edit" ? entry?.reminder_time || "" : "");
     setStatus(modalStatus, "");
 
     modal.classList.remove("hidden");
@@ -604,13 +765,23 @@ function initEventModal() {
     modalEmoji.value = sanitizeSingleEmojiInput(modalEmoji.value);
   });
 
+  [modalDate, modalEventTime].forEach((field) => {
+    field?.addEventListener("change", () => {
+      refreshReminderOptions("");
+    });
+
+    field?.addEventListener("input", () => {
+      refreshReminderOptions("");
+    });
+  });
+
   modalForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const sanitizedEmoji = sanitizeSingleEmojiInput(modalEmoji.value);
     modalEmoji.value = sanitizedEmoji;
 
-    if (!modalDate.value || !modalTime.value || !modalTitleInput.value.trim() || !sanitizedEmoji) {
+    if (!modalDate.value || !modalEventTime?.value || !modalTitleInput.value.trim() || !sanitizedEmoji) {
       setStatus(modalStatus, "請完整填寫日期、時間、主題與 1 個 Emoji。", "error");
       return;
     }
@@ -624,10 +795,11 @@ function initEventModal() {
       const payload = {
         user_id: user.id,
         event_date: modalDate.value,
-        event_time: modalTime.value,
+        event_time: modalEventTime.value,
         title: modalTitleInput.value.trim(),
         description: modalDescription.value.trim(),
         color: sanitizedEmoji,
+        reminder_time: modalReminderTime?.value ? modalReminderTime.value : null,
         bg_color: normalizeBgColor(modalBgColor?.value || "#ffffff"),
       };
 
