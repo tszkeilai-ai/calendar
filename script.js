@@ -233,7 +233,6 @@ function populateEventTimeField(field, selectedValue = "") {
   }
 }
 
-/* 🎯 根據你的新邏輯修改 buildReminderChoices */
 function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
   const defaultChoices = [{ value: "", label: "不需要提醒" }];
   const normalizedTimeValue = formatTimeLabel(timeValue);
@@ -247,38 +246,27 @@ function buildReminderChoices(isoDate, timeValue, selectedValue = "") {
     return defaultChoices;
   }
 
-  // 1. 無條件捨去至當前小時的整點 (例如 12:15/12:45 都當作 12:00)
-  const baseIntegerHour = new Date(eventDateTime.getTime());
-  baseIntegerHour.setMinutes(0, 0, 0);
+  const fifteenMinutesBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -15);
+  const oneHourBeforeText = shiftLocalDateTimeText(isoDate, `${normalizedTimeValue}:00`, -60);
 
-  // 2. 當前整點往前推 1 小時 (12:00 -> 11:00)
-  const targetHour1 = new Date(baseIntegerHour.getTime());
-  targetHour1.setHours(targetHour1.getHours() - 1);
-  const targetHour1Text = formatDateTimeToSQL(targetHour1);
-
-  // 3. 當前整點往前推 2 小時 (12:00 -> 10:00)
-  const targetHour2 = new Date(baseIntegerHour.getTime());
-  targetHour2.setHours(targetHour2.getHours() - 2);
-  const targetHour2Text = formatDateTimeToSQL(targetHour2);
-
-  // 4. 固定前一天 09:00:00 整
   const previousDayNine = createLocalDateTime(isoDate, "09:00:00");
   if (!previousDayNine || Number.isNaN(previousDayNine.getTime())) {
     return defaultChoices;
   }
   previousDayNine.setDate(previousDayNine.getDate() - 1);
+
   const previousDayNineText = formatDateTimeToSQL(previousDayNine);
 
   const dedupedChoices = new Map(
     [
       ...defaultChoices,
       {
-        value: targetHour1Text,
-        label: formatReminderOptionTimeLabel(targetHour1Text, isoDate, "(前 1 小時)"),
+        value: fifteenMinutesBeforeText,
+        label: formatReminderOptionTimeLabel(fifteenMinutesBeforeText, isoDate, "(前 15 分鐘)"),
       },
       {
-        value: targetHour2Text,
-        label: formatReminderOptionTimeLabel(targetHour2Text, isoDate, "(前 2 小時)"),
+        value: oneHourBeforeText,
+        label: formatReminderOptionTimeLabel(oneHourBeforeText, isoDate, "(前 1 小時)"),
       },
       {
         value: previousDayNineText,
@@ -623,7 +611,7 @@ const REMINDER_CHECK_INTERVAL = 15000;
 const reminderToastKeys = new Set();
 let reminderCheckTimer = null;
 
- function getReminderStorageKey(event = {}) {
+function getReminderStorageKey(event = {}) {
   return `calendar-reminder:${event.id || "unknown"}:${normalizeReminderDateTimeValue(event.reminder_time) || ""}`;
 }
 
